@@ -155,6 +155,13 @@ func (m *MemoryStore) UpdateHoleResult(_ context.Context, tournamentID string, r
 					match.HoleResults = make([]string, 18)
 				}
 				match.HoleResults[hole] = result
+				// Backfill any earlier empty holes as halved
+				for h := 0; h < hole; h++ {
+					if match.HoleResults[h] == "" {
+						match.HoleResults[h] = "halved"
+					}
+				}
+				match.Result, match.Score = models.CalculateMatchPlayResult(match.HoleResults, t.Teams[0].Name, t.Teams[1].Name)
 				t.UpdatedAt = time.Now()
 				return nil
 			}

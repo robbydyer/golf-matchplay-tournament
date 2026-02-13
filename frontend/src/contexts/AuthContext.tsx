@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import * as api from '../api/client';
 
@@ -55,6 +55,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   }, []);
+
+  // Refresh user data from backend on startup to pick up changes (e.g. isAdmin)
+  useEffect(() => {
+    if (!token) return;
+    api.getMe().then((me) => {
+      const userData: User = {
+        email: me.email,
+        name: me.name,
+        picture: me.picture,
+        isAdmin: me.isAdmin,
+      };
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    }).catch(() => {
+      // Token is invalid/expired — clear session
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      setToken(null);
+      setUser(null);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = useCallback(() => {
     localStorage.removeItem('access_token');

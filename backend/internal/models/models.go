@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type RoundType string
 
@@ -115,6 +118,69 @@ func DefaultRounds() []Round {
 			Matches:        []Match{},
 		},
 	}
+}
+
+// CalculateMatchPlayResult derives the match result and score string from
+// hole-by-hole results using standard match play rules. A match is clinched
+// when a team leads by more holes than remain to be played.
+func CalculateMatchPlayResult(holeResults []string, team1Name, team2Name string) (MatchResult, string) {
+	if len(holeResults) == 0 {
+		return ResultPending, ""
+	}
+
+	t1Wins := 0
+	t2Wins := 0
+	played := 0
+
+	for _, r := range holeResults {
+		switch r {
+		case "team1":
+			t1Wins++
+			played++
+		case "team2":
+			t2Wins++
+			played++
+		case "halved":
+			played++
+		}
+	}
+
+	if played == 0 {
+		return ResultPending, ""
+	}
+
+	lead := t1Wins - t2Wins
+	remaining := 18 - played
+
+	// Team 1 clinches
+	if lead > 0 && lead > remaining {
+		if remaining == 0 {
+			return ResultTeam1, fmt.Sprintf("%d UP", lead)
+		}
+		return ResultTeam1, fmt.Sprintf("%d & %d", lead, remaining)
+	}
+
+	// Team 2 clinches
+	if lead < 0 && -lead > remaining {
+		if remaining == 0 {
+			return ResultTeam2, fmt.Sprintf("%d UP", -lead)
+		}
+		return ResultTeam2, fmt.Sprintf("%d & %d", -lead, remaining)
+	}
+
+	// All 18 holes played, dead even
+	if remaining == 0 && lead == 0 {
+		return ResultTie, "A/S"
+	}
+
+	// Match still in progress — show running score
+	if lead > 0 {
+		return ResultPending, fmt.Sprintf("%s %d UP thru %d", team1Name, lead, played)
+	}
+	if lead < 0 {
+		return ResultPending, fmt.Sprintf("%s %d UP thru %d", team2Name, -lead, played)
+	}
+	return ResultPending, fmt.Sprintf("A/S thru %d", played)
 }
 
 func (t *Tournament) CalculateScoreboard() Scoreboard {
