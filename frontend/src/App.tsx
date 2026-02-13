@@ -1,8 +1,10 @@
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Header from './components/Header';
 import TournamentList from './components/TournamentList';
+import TournamentView from './components/TournamentView';
 import './App.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -19,7 +21,12 @@ function AppContent() {
     <>
       <Header />
       <main className="container">
-        <TournamentList />
+        <Routes>
+          <Route path="/" element={<TournamentList />} />
+          <Route path="/tournament/:id" element={<Navigate to="scoreboard" replace />} />
+          <Route path="/tournament/:id/:tab" element={<TournamentView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </>
   );

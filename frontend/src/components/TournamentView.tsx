@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Tournament, Scoreboard } from '../types';
 import * as api from '../api/client';
 import ScoreboardView from './ScoreboardView';
@@ -7,23 +8,30 @@ import RoundView from './RoundView';
 import PlayerLinks from './PlayerLinks';
 import { useAuth } from '../contexts/AuthContext';
 
-interface Props {
-  tournamentId: string;
-  onBack: () => void;
-}
-
-type Tab = 'scoreboard' | 'teams' | 'round' | 'links';
-
-export default function TournamentView({ tournamentId, onBack }: Props) {
+export default function TournamentView() {
+  const { id: tournamentId, tab } = useParams<{ id: string; tab: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [scoreboard, setScoreboard] = useState<Scoreboard | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('scoreboard');
-  const [activeRound, setActiveRound] = useState(1);
   const [error, setError] = useState('');
 
+  // Parse tab param into activeTab and activeRound
+  let activeTab: string;
+  let activeRound = 1;
+  if (tab && tab.startsWith('round')) {
+    activeTab = 'round';
+    const roundNum = parseInt(tab.replace('round', ''), 10);
+    if (roundNum >= 1 && roundNum <= 5) {
+      activeRound = roundNum;
+    }
+  } else {
+    activeTab = tab || 'scoreboard';
+  }
+
   const load = useCallback(async () => {
+    if (!tournamentId) return;
     try {
       const [t, sb] = await Promise.all([
         api.getTournament(tournamentId),
@@ -46,10 +54,12 @@ export default function TournamentView({ tournamentId, onBack }: Props) {
 
   const teamsReady = tournament.teams[0].players.length === 8 && tournament.teams[1].players.length === 8;
 
+  const navTo = (path: string) => navigate(`/tournament/${tournamentId}/${path}`, { replace: true });
+
   return (
     <div className="tournament-view">
       <div className="tournament-header">
-        <button className="btn" onClick={onBack}>&larr; Back</button>
+        <button className="btn" onClick={() => navigate('/')}>&larr; Back</button>
         <h2>{tournament.name}</h2>
       </div>
 
@@ -58,20 +68,20 @@ export default function TournamentView({ tournamentId, onBack }: Props) {
       <nav className="tabs">
         <button
           className={`tab ${activeTab === 'scoreboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('scoreboard')}
+          onClick={() => navTo('scoreboard')}
         >
           Scoreboard
         </button>
         <button
           className={`tab ${activeTab === 'teams' ? 'active' : ''}`}
-          onClick={() => setActiveTab('teams')}
+          onClick={() => navTo('teams')}
         >
           Teams
         </button>
         {isAdmin && (
           <button
             className={`tab ${activeTab === 'links' ? 'active' : ''}`}
-            onClick={() => setActiveTab('links')}
+            onClick={() => navTo('links')}
           >
             Player Links
           </button>
@@ -80,10 +90,7 @@ export default function TournamentView({ tournamentId, onBack }: Props) {
           <button
             key={r}
             className={`tab ${activeTab === 'round' && activeRound === r ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('round');
-              setActiveRound(r);
-            }}
+            onClick={() => navTo(`round${r}`)}
           >
             R{r}
           </button>

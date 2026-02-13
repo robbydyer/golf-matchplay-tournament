@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tournament } from '../types';
 import * as api from '../api/client';
-import TournamentView from './TournamentView';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function TournamentList() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', team1Name: '', team2Name: '' });
   const [error, setError] = useState('');
@@ -33,18 +33,13 @@ export default function TournamentList() {
     }
     try {
       const t = await api.createTournament(form.name, form.team1Name, form.team2Name);
-      setTournaments([...tournaments, t]);
       setCreating(false);
       setForm({ name: '', team1Name: '', team2Name: '' });
-      setSelected(t.id);
+      navigate(`/tournament/${t.id}/scoreboard`);
     } catch (e: any) {
       setError(e.message);
     }
   };
-
-  if (selected) {
-    return <TournamentView tournamentId={selected} onBack={() => { setSelected(null); load(); }} />;
-  }
 
   return (
     <div className="tournament-list">
@@ -100,7 +95,7 @@ export default function TournamentList() {
       ) : (
         <div className="card-grid">
           {tournaments.map((t) => (
-            <div key={t.id} className="card clickable" onClick={() => setSelected(t.id)}>
+            <div key={t.id} className="card clickable" onClick={() => navigate(`/tournament/${t.id}/scoreboard`)}>
               <h3>{t.name}</h3>
               <p>
                 {t.teams[0].name} vs {t.teams[1].name}
