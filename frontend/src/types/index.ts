@@ -29,7 +29,7 @@ export interface Match {
   team2Players: string[];
   result: MatchResult;
   score: string;
-  holeResults: HoleResult[] | null;
+  holeResults: Record<string, HoleResult> | null;
 }
 
 export interface Round {

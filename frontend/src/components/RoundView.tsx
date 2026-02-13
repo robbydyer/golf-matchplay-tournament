@@ -148,7 +148,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
 
   const handleHoleResult = async (match: Match, hole: number, result: HoleResult) => {
     try {
-      const current = match.holeResults?.[hole - 1] || '';
+      const current = (match.holeResults?.[hole] || '') as HoleResult;
       // Toggle: if already set to this result, clear it
       const newResult: HoleResult = current === result ? '' : result;
       await api.updateHoleResult(tournament.id, roundNumber, match.id, hole, newResult);
@@ -161,7 +161,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
   const getHoleStatus = (match: Match) => {
     if (!match.holeResults) return { t1: 0, t2: 0, halved: 0, played: 0 };
     let t1 = 0, t2 = 0, halved = 0;
-    for (const r of match.holeResults) {
+    for (const r of Object.values(match.holeResults)) {
       if (r === 'team1') t1++;
       else if (r === 'team2') t2++;
       else if (r === 'halved') halved++;
@@ -355,7 +355,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
                   <div className="holes-grid">
                     {Array.from({ length: 18 }, (_, i) => {
                       const holeNum = i + 1;
-                      const current = (match.holeResults?.[i] || '') as HoleResult;
+                      const current = (match.holeResults?.[holeNum] || '') as HoleResult;
                       const editable = canEditHoles(match);
                       return (
                         <div key={holeNum} className="hole-cell">

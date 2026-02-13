@@ -43,11 +43,11 @@ func (f *FileStore) readTournament(id string) (*models.Tournament, error) {
 	if err := json.Unmarshal(data, &t); err != nil {
 		return nil, fmt.Errorf("decoding tournament %s: %w", id, err)
 	}
-	// Normalize: ensure all matches have HoleResults initialized (handles old data files)
+	// Normalize: ensure all matches have HoleResults initialized and migrate old array format
 	for i := range t.Rounds {
 		for j := range t.Rounds[i].Matches {
 			if t.Rounds[i].Matches[j].HoleResults == nil {
-				t.Rounds[i].Matches[j].HoleResults = make([]string, 18)
+				t.Rounds[i].Matches[j].HoleResults = make(map[int]string)
 			}
 		}
 	}
@@ -284,11 +284,15 @@ func (f *FileStore) UpdateHoleResult(_ context.Context, tournamentID string, rou
 			if t.Rounds[i].Matches[j].ID == matchID {
 				match := &t.Rounds[i].Matches[j]
 				if match.HoleResults == nil {
-					match.HoleResults = make([]string, 18)
+					match.HoleResults = make(map[int]string)
 				}
-				match.HoleResults[hole] = result
+				if result == "" {
+					delete(match.HoleResults, hole)
+				} else {
+					match.HoleResults[hole] = result
+				}
 				// Backfill any earlier empty holes as halved
-				for h := 0; h < hole; h++ {
+				for h := 1; h < hole; h++ {
 					if match.HoleResults[h] == "" {
 						match.HoleResults[h] = "halved"
 					}

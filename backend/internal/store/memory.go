@@ -154,11 +154,15 @@ func (m *MemoryStore) UpdateHoleResult(_ context.Context, tournamentID string, r
 			if t.Rounds[i].Matches[j].ID == matchID {
 				match := &t.Rounds[i].Matches[j]
 				if match.HoleResults == nil {
-					match.HoleResults = make([]string, 18)
+					match.HoleResults = make(map[int]string)
 				}
-				match.HoleResults[hole] = result
+				if result == "" {
+					delete(match.HoleResults, hole)
+				} else {
+					match.HoleResults[hole] = result
+				}
 				// Backfill any earlier empty holes as halved
-				for h := 0; h < hole; h++ {
+				for h := 1; h < hole; h++ {
 					if match.HoleResults[h] == "" {
 						match.HoleResults[h] = "halved"
 					}

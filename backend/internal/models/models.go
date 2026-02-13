@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -49,7 +50,51 @@ type Match struct {
 	Team2Players []string    `json:"team2Players"` // player IDs
 	Result       MatchResult `json:"result"`
 	Score        string      `json:"score"`        // match play score, e.g. "2 & 1", "1 UP", "A/S"
-	HoleResults  []string    `json:"holeResults"`   // per-hole results: "team1", "team2", "halved", or ""
+	HoleResults  map[int]string `json:"holeResults"` // hole number (1-18) -> "team1", "team2", or "halved"
+}
+
+// UnmarshalJSON handles both the old array format and the new map format for HoleResults.
+func (m *Match) UnmarshalJSON(data []byte) error {
+	// Use an alias to avoid infinite recursion
+	type matchAlias Match
+	var raw struct {
+		matchAlias
+		RawHoleResults json.RawMessage `json:"holeResults"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*m = Match(raw.matchAlias)
+	m.HoleResults = make(map[int]string)
+
+	if len(raw.RawHoleResults) == 0 || string(raw.RawHoleResults) == "null" {
+		return nil
+	}
+
+	// Try map format first (new format: {"1": "team1", "2": "halved"})
+	var mapFormat map[string]string
+	if err := json.Unmarshal(raw.RawHoleResults, &mapFormat); err == nil {
+		for k, v := range mapFormat {
+			var hole int
+			if _, err := fmt.Sscanf(k, "%d", &hole); err == nil && v != "" {
+				m.HoleResults[hole] = v
+			}
+		}
+		return nil
+	}
+
+	// Fall back to array format (old format: ["halved", "team1", "", ...])
+	var arrFormat []string
+	if err := json.Unmarshal(raw.RawHoleResults, &arrFormat); err == nil {
+		for i, v := range arrFormat {
+			if v != "" {
+				m.HoleResults[i+1] = v // convert 0-based index to 1-based hole number
+			}
+		}
+		return nil
+	}
+
+	return nil
 }
 
 type Round struct {
@@ -130,7 +175,7 @@ func DefaultRounds() []Round {
 // CalculateMatchPlayResult derives the match result and score string from
 // hole-by-hole results using standard match play rules. A match is clinched
 // when a team leads by more holes than remain to be played.
-func CalculateMatchPlayResult(holeResults []string, team1Name, team2Name string) (MatchResult, string) {
+func CalculateMatchPlayResult(holeResults map[int]string, team1Name, team2Name string) (MatchResult, string) {
 	if len(holeResults) == 0 {
 		return ResultPending, ""
 	}
@@ -139,8 +184,8 @@ func CalculateMatchPlayResult(holeResults []string, team1Name, team2Name string)
 	t2Wins := 0
 	played := 0
 
-	for _, r := range holeResults {
-		switch r {
+	for h := 1; h <= 18; h++ {
+		switch holeResults[h] {
 		case "team1":
 			t1Wins++
 			played++

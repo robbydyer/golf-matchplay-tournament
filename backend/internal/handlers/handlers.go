@@ -224,7 +224,7 @@ func (h *Handler) SetPairings(w http.ResponseWriter, r *http.Request) {
 			Team1Players: m.Team1Players,
 			Team2Players: m.Team2Players,
 			Result:       models.ResultPending,
-			HoleResults:  make([]string, 18),
+			HoleResults:  make(map[int]string),
 		}
 	}
 
@@ -331,7 +331,7 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.store.UpdateHoleResult(r.Context(), id, roundNum, matchID, holeNum-1, req.Result); err != nil {
+	if err := h.store.UpdateHoleResult(r.Context(), id, roundNum, matchID, holeNum, req.Result); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
