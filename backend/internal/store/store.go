@@ -19,4 +19,11 @@ type Store interface {
 	UpdateMatchResult(ctx context.Context, tournamentID string, roundNumber int, matchID string, result models.MatchResult, score string) error
 	SetRoundPairings(ctx context.Context, tournamentID string, roundNumber int, matches []models.Match) error
 	UpdateHoleResult(ctx context.Context, tournamentID string, roundNumber int, matchID string, hole int, result string) error
+
+	// User registry
+	RegisterUser(ctx context.Context, user *models.RegisteredUser) error
+	ListRegisteredUsers(ctx context.Context) ([]*models.RegisteredUser, error)
+
+	// Player-user linking
+	LinkPlayer(ctx context.Context, tournamentID string, playerID string, email string) error
 }

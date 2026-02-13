@@ -4,6 +4,7 @@ import * as api from '../api/client';
 import ScoreboardView from './ScoreboardView';
 import TeamSetup from './TeamSetup';
 import RoundView from './RoundView';
+import PlayerLinks from './PlayerLinks';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
   onBack: () => void;
 }
 
-type Tab = 'scoreboard' | 'teams' | 'round';
+type Tab = 'scoreboard' | 'teams' | 'round' | 'links';
 
 export default function TournamentView({ tournamentId, onBack }: Props) {
   const { user } = useAuth();
@@ -67,6 +68,14 @@ export default function TournamentView({ tournamentId, onBack }: Props) {
         >
           Teams
         </button>
+        {isAdmin && (
+          <button
+            className={`tab ${activeTab === 'links' ? 'active' : ''}`}
+            onClick={() => setActiveTab('links')}
+          >
+            Player Links
+          </button>
+        )}
         {[1, 2, 3, 4, 5].map((r) => (
           <button
             key={r}
@@ -87,6 +96,9 @@ export default function TournamentView({ tournamentId, onBack }: Props) {
         )}
         {activeTab === 'teams' && (
           <TeamSetup tournament={tournament} onUpdate={load} isAdmin={isAdmin} />
+        )}
+        {activeTab === 'links' && isAdmin && (
+          <PlayerLinks tournament={tournament} onUpdate={load} />
         )}
         {activeTab === 'round' && (
           <RoundView

@@ -11,11 +11,13 @@ import (
 type MemoryStore struct {
 	mu          sync.RWMutex
 	tournaments map[string]*models.Tournament
+	users       map[string]*models.RegisteredUser
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		tournaments: make(map[string]*models.Tournament),
+		users:       make(map[string]*models.RegisteredUser),
 	}
 }
 
@@ -170,4 +172,44 @@ func (m *MemoryStore) UpdateHoleResult(_ context.Context, tournamentID string, r
 	}
 
 	return fmt.Errorf("round %d not found", roundNumber)
+}
+
+func (m *MemoryStore) RegisterUser(_ context.Context, user *models.RegisteredUser) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.users[user.Email] = user
+	return nil
+}
+
+func (m *MemoryStore) ListRegisteredUsers(_ context.Context) ([]*models.RegisteredUser, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	result := make([]*models.RegisteredUser, 0, len(m.users))
+	for _, u := range m.users {
+		copied := *u
+		result = append(result, &copied)
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) LinkPlayer(_ context.Context, tournamentID string, playerID string, email string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	t, ok := m.tournaments[tournamentID]
+	if !ok {
+		return fmt.Errorf("tournament %s not found", tournamentID)
+	}
+
+	for ti := range t.Teams {
+		for pi := range t.Teams[ti].Players {
+			if t.Teams[ti].Players[pi].ID == playerID {
+				t.Teams[ti].Players[pi].UserEmail = email
+				t.UpdatedAt = time.Now()
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("player %s not found", playerID)
 }

@@ -1,4 +1,4 @@
-import { Tournament, Scoreboard, MatchResult, HoleResult, User } from '../types';
+import { Tournament, Scoreboard, MatchResult, HoleResult, User, RegisteredUser } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
@@ -91,6 +91,21 @@ export async function updateMatchResult(
   return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/matches/${matchId}`, {
     method: 'PUT',
     body: JSON.stringify({ result, score }),
+  });
+}
+
+export async function listUsers(): Promise<RegisteredUser[]> {
+  return apiFetch<RegisteredUser[]>('/users');
+}
+
+export async function linkPlayer(
+  tournamentId: string,
+  playerId: string,
+  email: string
+): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/players/${playerId}/link`, {
+    method: 'PUT',
+    body: JSON.stringify({ email }),
   });
 }
 

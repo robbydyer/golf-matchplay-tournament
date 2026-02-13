@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Tournament, Match, Player, MatchResult, HoleResult } from '../types';
 import * as api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
   tournament: Tournament;
@@ -11,10 +12,29 @@ interface Props {
 }
 
 export default function RoundView({ tournament, roundNumber, onUpdate, teamsReady, isAdmin }: Props) {
+  const { user } = useAuth();
   const round = tournament.rounds.find((r) => r.number === roundNumber)!;
   const team1 = tournament.teams[0];
   const team2 = tournament.teams[1];
   const isSingles = round.type === 'singles';
+
+  // Build a map of playerID -> userEmail for checking match participation
+  const playerEmailMap = new Map<string, string>();
+  [...team1.players, ...team2.players].forEach((p) => {
+    if (p.userEmail) playerEmailMap.set(p.id, p.userEmail.toLowerCase());
+  });
+
+  const isPlayerInMatch = (match: Match): boolean => {
+    if (!user?.email) return false;
+    const email = user.email.toLowerCase();
+    return [...match.team1Players, ...match.team2Players].some(
+      (pid) => playerEmailMap.get(pid) === email
+    );
+  };
+
+  const canEditHoles = (match: Match): boolean => {
+    return isAdmin || isPlayerInMatch(match);
+  };
 
   const [settingUp, setSettingUp] = useState(false);
   const [pairings, setPairings] = useState<{ t1: string[]; t2: string[] }[]>([]);
@@ -336,32 +356,44 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
                     {Array.from({ length: 18 }, (_, i) => {
                       const holeNum = i + 1;
                       const current = (match.holeResults?.[i] || '') as HoleResult;
+                      const editable = canEditHoles(match);
                       return (
                         <div key={holeNum} className="hole-cell">
                           <span className="hole-number">{holeNum}</span>
-                          <div className="hole-buttons">
-                            <button
-                              className={`hole-btn hole-t1 ${current === 'team1' ? 'active' : ''}`}
-                              onClick={() => handleHoleResult(match, holeNum, 'team1')}
-                              title={`${team1.name} wins hole ${holeNum}`}
-                            >
-                              {team1.name.substring(0, 3)}
-                            </button>
-                            <button
-                              className={`hole-btn hole-halved ${current === 'halved' ? 'active' : ''}`}
-                              onClick={() => handleHoleResult(match, holeNum, 'halved')}
-                              title={`Hole ${holeNum} halved`}
-                            >
-                              &#189;
-                            </button>
-                            <button
-                              className={`hole-btn hole-t2 ${current === 'team2' ? 'active' : ''}`}
-                              onClick={() => handleHoleResult(match, holeNum, 'team2')}
-                              title={`${team2.name} wins hole ${holeNum}`}
-                            >
-                              {team2.name.substring(0, 3)}
-                            </button>
-                          </div>
+                          {editable ? (
+                            <div className="hole-buttons">
+                              <button
+                                className={`hole-btn hole-t1 ${current === 'team1' ? 'active' : ''}`}
+                                onClick={() => handleHoleResult(match, holeNum, 'team1')}
+                                title={`${team1.name} wins hole ${holeNum}`}
+                              >
+                                {team1.name.substring(0, 3)}
+                              </button>
+                              <button
+                                className={`hole-btn hole-halved ${current === 'halved' ? 'active' : ''}`}
+                                onClick={() => handleHoleResult(match, holeNum, 'halved')}
+                                title={`Hole ${holeNum} halved`}
+                              >
+                                &#189;
+                              </button>
+                              <button
+                                className={`hole-btn hole-t2 ${current === 'team2' ? 'active' : ''}`}
+                                onClick={() => handleHoleResult(match, holeNum, 'team2')}
+                                title={`${team2.name} wins hole ${holeNum}`}
+                              >
+                                {team2.name.substring(0, 3)}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="hole-buttons">
+                              <span className={`hole-indicator ${current ? 'hole-' + (current === 'team1' ? 't1' : current === 'team2' ? 't2' : 'halved') + ' active' : ''}`}>
+                                {current === 'team1' ? team1.name.substring(0, 3)
+                                  : current === 'team2' ? team2.name.substring(0, 3)
+                                  : current === 'halved' ? '\u00BD'
+                                  : '-'}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

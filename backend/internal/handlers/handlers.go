@@ -8,6 +8,7 @@ import (
 	"scoring-backend/internal/models"
 	"scoring-backend/internal/store"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -31,6 +32,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}/holes/{hole}", h.UpdateHoleResult)
+	mux.HandleFunc("GET /api/users", auth.RequireAdmin(h.ListUsers))
+	mux.HandleFunc("PUT /api/tournaments/{id}/players/{playerId}/link", auth.RequireAdmin(h.LinkPlayer))
 }
 
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +42,14 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "not authenticated")
 		return
 	}
+
+	// Register/update user in the registry
+	h.store.RegisterUser(r.Context(), &models.RegisteredUser{
+		Email:   user.Email,
+		Name:    user.Name,
+		Picture: user.Picture,
+	})
+
 	writeJSON(w, http.StatusOK, user)
 }
 
@@ -135,14 +146,17 @@ func (h *Handler) UpdateTournament(w http.ResponseWriter, r *http.Request) {
 			players := make([]models.Player, len(req.Teams[i].Players))
 			for j, p := range req.Teams[i].Players {
 				playerID := uuid.New().String()
-				// Preserve existing player IDs if available
+				userEmail := ""
+				// Preserve existing player IDs and links if available
 				if j < len(t.Teams[i].Players) {
 					playerID = t.Teams[i].Players[j].ID
+					userEmail = t.Teams[i].Players[j].UserEmail
 				}
 				players[j] = models.Player{
-					ID:     playerID,
-					Name:   p.Name,
-					TeamID: t.Teams[i].ID,
+					ID:        playerID,
+					Name:      p.Name,
+					TeamID:    t.Teams[i].ID,
+					UserEmail: userEmail,
 				}
 			}
 			t.Teams[i].Players = players
@@ -210,6 +224,7 @@ func (h *Handler) SetPairings(w http.ResponseWriter, r *http.Request) {
 			Team1Players: m.Team1Players,
 			Team2Players: m.Team2Players,
 			Result:       models.ResultPending,
+			HoleResults:  make([]string, 18),
 		}
 	}
 
@@ -298,7 +313,92 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Authorization: must be admin or a linked player in this match
+	user := auth.GetUser(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+	if !user.IsAdmin {
+		t, err := h.store.GetTournament(r.Context(), id)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if !isPlayerInMatch(t, roundNum, matchID, strings.ToLower(user.Email)) {
+			writeError(w, http.StatusForbidden, "you are not a player in this match")
+			return
+		}
+	}
+
 	if err := h.store.UpdateHoleResult(r.Context(), id, roundNum, matchID, holeNum-1, req.Result); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	t, _ := h.store.GetTournament(r.Context(), id)
+	writeJSON(w, http.StatusOK, t)
+}
+
+// isPlayerInMatch checks if the given email is linked to any player in a specific match.
+func isPlayerInMatch(t *models.Tournament, roundNumber int, matchID string, email string) bool {
+	playerEmails := make(map[string]string) // playerID -> userEmail
+	for _, team := range t.Teams {
+		for _, p := range team.Players {
+			if p.UserEmail != "" {
+				playerEmails[p.ID] = strings.ToLower(p.UserEmail)
+			}
+		}
+	}
+
+	for _, round := range t.Rounds {
+		if round.Number != roundNumber {
+			continue
+		}
+		for _, match := range round.Matches {
+			if match.ID != matchID {
+				continue
+			}
+			for _, pid := range match.Team1Players {
+				if playerEmails[pid] == email {
+					return true
+				}
+			}
+			for _, pid := range match.Team2Players {
+				if playerEmails[pid] == email {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return false
+}
+
+func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.store.ListRegisteredUsers(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
+type LinkPlayerRequest struct {
+	Email string `json:"email"`
+}
+
+func (h *Handler) LinkPlayer(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	playerID := r.PathValue("playerId")
+
+	var req LinkPlayerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := h.store.LinkPlayer(r.Context(), id, playerID, req.Email); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

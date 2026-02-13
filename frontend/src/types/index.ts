@@ -5,6 +5,13 @@ export interface Player {
   id: string;
   name: string;
   teamId: string;
+  userEmail?: string;
+}
+
+export interface RegisteredUser {
+  email: string;
+  name: string;
+  picture: string;
 }
 
 export interface Team {
@@ -22,7 +29,7 @@ export interface Match {
   team2Players: string[];
   result: MatchResult;
   score: string;
-  holeResults: HoleResult[];
+  holeResults: HoleResult[] | null;
 }
 
 export interface Round {

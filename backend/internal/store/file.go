@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"scoring-backend/internal/models"
+	"strings"
 	"sync"
 	"time"
 )
@@ -41,6 +42,14 @@ func (f *FileStore) readTournament(id string) (*models.Tournament, error) {
 	var t models.Tournament
 	if err := json.Unmarshal(data, &t); err != nil {
 		return nil, fmt.Errorf("decoding tournament %s: %w", id, err)
+	}
+	// Normalize: ensure all matches have HoleResults initialized (handles old data files)
+	for i := range t.Rounds {
+		for j := range t.Rounds[i].Matches {
+			if t.Rounds[i].Matches[j].HoleResults == nil {
+				t.Rounds[i].Matches[j].HoleResults = make([]string, 18)
+			}
+		}
 	}
 	return &t, nil
 }
@@ -108,7 +117,7 @@ func (f *FileStore) ListTournaments(_ context.Context) ([]*models.Tournament, er
 
 	tournaments := make([]*models.Tournament, 0)
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" || strings.HasPrefix(entry.Name(), "_") {
 			continue
 		}
 		id := entry.Name()[:len(entry.Name())-5] // strip .json
@@ -181,6 +190,81 @@ func (f *FileStore) SetRoundPairings(_ context.Context, tournamentID string, rou
 	}
 
 	return fmt.Errorf("round %d not found", roundNumber)
+}
+
+func (f *FileStore) usersPath() string {
+	return filepath.Join(f.dir, "_users.json")
+}
+
+func (f *FileStore) RegisterUser(_ context.Context, user *models.RegisteredUser) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users := make(map[string]*models.RegisteredUser)
+	data, err := os.ReadFile(f.usersPath())
+	if err == nil {
+		json.Unmarshal(data, &users)
+	}
+	users[user.Email] = user
+	out, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding users: %w", err)
+	}
+	tmp := f.usersPath() + ".tmp"
+	if err := os.WriteFile(tmp, out, 0644); err != nil {
+		return fmt.Errorf("writing users: %w", err)
+	}
+	if err := os.Rename(tmp, f.usersPath()); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("renaming users file: %w", err)
+	}
+	return nil
+}
+
+func (f *FileStore) ListRegisteredUsers(_ context.Context) ([]*models.RegisteredUser, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	data, err := os.ReadFile(f.usersPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make([]*models.RegisteredUser, 0), nil
+		}
+		return nil, fmt.Errorf("reading users: %w", err)
+	}
+
+	var users map[string]*models.RegisteredUser
+	if err := json.Unmarshal(data, &users); err != nil {
+		return nil, fmt.Errorf("decoding users: %w", err)
+	}
+
+	result := make([]*models.RegisteredUser, 0, len(users))
+	for _, u := range users {
+		result = append(result, u)
+	}
+	return result, nil
+}
+
+func (f *FileStore) LinkPlayer(_ context.Context, tournamentID string, playerID string, email string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	t, err := f.readTournament(tournamentID)
+	if err != nil {
+		return err
+	}
+
+	for ti := range t.Teams {
+		for pi := range t.Teams[ti].Players {
+			if t.Teams[ti].Players[pi].ID == playerID {
+				t.Teams[ti].Players[pi].UserEmail = email
+				t.UpdatedAt = time.Now()
+				return f.writeTournament(t)
+			}
+		}
+	}
+
+	return fmt.Errorf("player %s not found", playerID)
 }
 
 func (f *FileStore) UpdateHoleResult(_ context.Context, tournamentID string, roundNumber int, matchID string, hole int, result string) error {

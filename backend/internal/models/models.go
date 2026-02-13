@@ -24,9 +24,16 @@ const (
 )
 
 type Player struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	TeamID string `json:"teamId"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	TeamID    string `json:"teamId"`
+	UserEmail string `json:"userEmail,omitempty"`
+}
+
+type RegisteredUser struct {
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Picture string `json:"picture"`
 }
 
 type Team struct {
