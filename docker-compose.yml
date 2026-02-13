@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - CORS_ORIGIN=http://localhost:5173
+      - DEV_MODE=${DEV_MODE:-false}
+      - STORE_BACKEND=${STORE_BACKEND:-file}
+      - DATA_DIR=/data
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+    volumes:
+      - ./data:/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}
+      - VITE_DEV_MODE=${DEV_MODE:-false}
+      - API_URL=http://backend:8080
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
