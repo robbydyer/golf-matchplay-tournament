@@ -73,3 +73,11 @@ export interface User {
   picture: string;
   isAdmin: boolean;
 }
+
+export interface LocalUserInfo {
+  email: string;
+  name: string;
+  emailVerified: boolean;
+  confirmed: boolean;
+  createdAt: string;
+}

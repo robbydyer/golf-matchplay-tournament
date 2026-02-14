@@ -1,4 +1,4 @@
-import { Tournament, Scoreboard, MatchResult, HoleResult, User, RegisteredUser } from '../types';
+import { Tournament, Scoreboard, MatchResult, HoleResult, User, RegisteredUser, LocalUserInfo } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
@@ -160,5 +160,25 @@ export async function updateHoleResult(
   return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/matches/${matchId}/holes/${hole}`, {
     method: 'PUT',
     body: JSON.stringify({ result }),
+  });
+}
+
+// --- Admin user management ---
+
+export async function listLocalUsers(): Promise<LocalUserInfo[]> {
+  return apiFetch<LocalUserInfo[]>('/admin/users');
+}
+
+export async function confirmUser(email: string): Promise<{ message: string }> {
+  return apiFetch('/admin/users/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function rejectUser(email: string): Promise<{ message: string }> {
+  return apiFetch('/admin/users/reject', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
   });
 }

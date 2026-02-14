@@ -92,7 +92,7 @@ func main() {
 		appURL = allowedOrigin
 	}
 
-	h := handlers.New(s, emailCfg, jwtSecret, appURL)
+	h := handlers.New(s, emailCfg, jwtSecret, appURL, adminEmails)
 
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)

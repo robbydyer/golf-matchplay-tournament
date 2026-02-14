@@ -18,18 +18,20 @@ import (
 )
 
 type Handler struct {
-	store     store.Store
-	emailCfg  *email.Config
-	jwtSecret string
-	appURL    string
+	store       store.Store
+	emailCfg    *email.Config
+	jwtSecret   string
+	appURL      string
+	adminEmails map[string]bool
 }
 
-func New(s store.Store, emailCfg *email.Config, jwtSecret, appURL string) *Handler {
+func New(s store.Store, emailCfg *email.Config, jwtSecret, appURL string, adminEmails map[string]bool) *Handler {
 	return &Handler{
-		store:     s,
-		emailCfg:  emailCfg,
-		jwtSecret: jwtSecret,
-		appURL:    appURL,
+		store:       s,
+		emailCfg:    emailCfg,
+		jwtSecret:   jwtSecret,
+		appURL:      appURL,
+		adminEmails: adminEmails,
 	}
 }
 
@@ -52,6 +54,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}/holes/{hole}", h.UpdateHoleResult)
 	mux.HandleFunc("GET /api/users", auth.RequireAdmin(h.ListUsers))
 	mux.HandleFunc("PUT /api/tournaments/{id}/players/{playerId}/link", auth.RequireAdmin(h.LinkPlayer))
+
+	// Admin user management
+	mux.HandleFunc("GET /api/admin/users", auth.RequireAdmin(h.ListLocalUsersAdmin))
+	mux.HandleFunc("POST /api/admin/users/confirm", auth.RequireAdmin(h.ConfirmUser))
+	mux.HandleFunc("POST /api/admin/users/reject", auth.RequireAdmin(h.RejectUser))
 }
 
 // --- Public auth handlers ---
@@ -97,6 +104,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Name:              req.Name,
 		PasswordHash:      string(hash),
 		EmailVerified:     false,
+		Confirmed:         h.adminEmails[req.Email],
 		VerificationToken: verToken,
 		CreatedAt:         time.Now(),
 	}
@@ -115,7 +123,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]string{
-		"message": "Registration successful. Please check your email to verify your account.",
+		"message": "Registration successful. Please check your email to verify your account. An admin will need to confirm your access.",
 	})
 }
 
@@ -144,6 +152,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if !user.EmailVerified {
 		writeError(w, http.StatusForbidden, "please verify your email before logging in")
+		return
+	}
+
+	if !user.Confirmed {
+		writeError(w, http.StatusForbidden, "your account is pending admin approval")
 		return
 	}
 
@@ -178,8 +191,83 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{
-		"message": "Email verified successfully. You can now log in.",
+		"message": "Email verified successfully. An admin will review your account before you can log in.",
 	})
+}
+
+// --- Admin user management handlers ---
+
+func (h *Handler) ListLocalUsersAdmin(w http.ResponseWriter, r *http.Request) {
+	users, err := h.store.ListLocalUsers(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type userResponse struct {
+		Email         string    `json:"email"`
+		Name          string    `json:"name"`
+		EmailVerified bool      `json:"emailVerified"`
+		Confirmed     bool      `json:"confirmed"`
+		CreatedAt     time.Time `json:"createdAt"`
+	}
+
+	result := make([]userResponse, len(users))
+	for i, u := range users {
+		result[i] = userResponse{
+			Email:         u.Email,
+			Name:          u.Name,
+			EmailVerified: u.EmailVerified,
+			Confirmed:     u.Confirmed,
+			CreatedAt:     u.CreatedAt,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) ConfirmUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	if err := h.store.ConfirmLocalUser(r.Context(), req.Email); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "user confirmed"})
+}
+
+func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	if err := h.store.DeleteLocalUser(r.Context(), req.Email); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
 }
 
 // --- Authenticated handlers ---
@@ -295,7 +383,6 @@ func (h *Handler) UpdateTournament(w http.ResponseWriter, r *http.Request) {
 			for j, p := range req.Teams[i].Players {
 				playerID := uuid.New().String()
 				userEmail := ""
-				// Preserve existing player IDs and links if available
 				if j < len(t.Teams[i].Players) {
 					playerID = t.Teams[i].Players[j].ID
 					userEmail = t.Teams[i].Players[j].UserEmail
@@ -428,7 +515,7 @@ func (h *Handler) UpdateMatchResult(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateHoleResultRequest struct {
-	Result string `json:"result"` // "team1", "team2", "halved", or ""
+	Result string `json:"result"`
 }
 
 func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +548,6 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Authorization: must be admin or a linked player in this match
 	user := auth.GetUser(r.Context())
 	if user == nil {
 		writeError(w, http.StatusUnauthorized, "not authenticated")
@@ -488,9 +574,8 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, t)
 }
 
-// isPlayerInMatch checks if the given email is linked to any player in a specific match.
 func isPlayerInMatch(t *models.Tournament, roundNumber int, matchID string, email string) bool {
-	playerEmails := make(map[string]string) // playerID -> userEmail
+	playerEmails := make(map[string]string)
 	for _, team := range t.Teams {
 		for _, p := range team.Players {
 			if p.UserEmail != "" {

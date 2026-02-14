@@ -1,9 +1,7 @@
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../api/client';
-
-const GoogleLoginButton = lazy(() => import('./GoogleLoginButton'));
 
 function DevLogin() {
   const { devLogin } = useAuth();
@@ -75,19 +73,7 @@ export default function Login({ devMode }: { devMode: boolean }) {
       <div className="login-card">
         <h1>PUC Redyr Golf Scoring</h1>
         <p>Sign in to manage tournament scores</p>
-        {devMode ? (
-          <DevLogin />
-        ) : (
-          <>
-            <EmailLoginForm />
-            <div className="login-divider">
-              <span>or</span>
-            </div>
-            <Suspense fallback={<div>Loading...</div>}>
-              <GoogleLoginButton />
-            </Suspense>
-          </>
-        )}
+        {devMode ? <DevLogin /> : <EmailLoginForm />}
       </div>
     </div>
   );

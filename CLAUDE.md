@@ -32,10 +32,9 @@ Frontend dev server runs on `http://localhost:5173`, backend on `http://localhos
 ## Environment
 
 Set in `.env` (loaded by docker-compose):
-- `DEV_MODE=true` — bypasses Google OAuth, all users are admin
+- `DEV_MODE=true` — bypasses auth, all users are admin
 - `STORE_BACKEND=file` — persistence mode (`memory`, `file`, `firestore`)
 - `ADMIN_EMAILS=a@b.com,c@d.com` — comma-separated admin emails
-- `VITE_GOOGLE_CLIENT_ID` — required for Google OAuth when `DEV_MODE=false`
 - `JWT_SECRET` — HMAC secret for signing local auth tokens (required for production)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — SMTP config for verification emails
 - `APP_URL` — frontend URL for verification email links (defaults to `CORS_ORIGIN`)
@@ -49,7 +48,7 @@ Go standard library HTTP server (Go 1.22 method-based routing). No framework.
 - **Entry**: `cmd/server/main.go` — env config, store init, middleware chain (CORS → Auth → routes)
 - **Handlers**: `internal/handlers/handlers.go` — all REST endpoints, route registration
 - **Models**: `internal/models/models.go` — Tournament, Match, Player, Round structs; match play scoring logic (`CalculateMatchPlayResult`)
-- **Auth**: `internal/auth/auth.go` — Google OAuth token verification via `oauth2.googleapis.com/tokeninfo`, local email/password auth with HMAC-signed tokens, `RequireAdmin` middleware, dev mode bypass
+- **Auth**: `internal/auth/auth.go` — email/password auth with HMAC-signed tokens, `RequireAdmin` middleware, dev mode bypass
 - **Email**: `internal/email/email.go` — SMTP email sending for verification
 - **Store**: `internal/store/store.go` — interface; `memory.go` (in-RAM), `file.go` (JSON files with atomic writes), `firestore.go` (stub)
 
@@ -59,10 +58,10 @@ Store pattern: all mutations read-modify-write the full tournament. FileStore us
 
 React 18 + TypeScript + Vite. Client-side routing via `react-router-dom` v6.
 
-- **Routes** (defined in `App.tsx`): `/` (list), `/tournament/:id/:tab` (detail with tabs), `/register`, `/verify`
-- **Auth**: `contexts/AuthContext.tsx` — Google OAuth, email/password, or dev mode; token in localStorage, refreshes via `/api/me` on mount
+- **Routes** (defined in `App.tsx`): `/` (list), `/tournament/:id/:tab` (detail with tabs), `/register`, `/verify`, `/admin/users` (admin only)
+- **Auth**: `contexts/AuthContext.tsx` — email/password or dev mode; token in localStorage, refreshes via `/api/me` on mount
 - **API**: `api/client.ts` — typed fetch wrapper, bearer token auth; `publicFetch` for unauthenticated auth endpoints
-- **Key components**: `TournamentView.tsx` (tab router), `RoundView.tsx` (pairings + hole-by-hole scoring), `ScoreboardView.tsx`, `TeamSetup.tsx`, `PlayerLinks.tsx`, `Register.tsx`, `VerifyEmail.tsx`
+- **Key components**: `TournamentView.tsx` (tab router), `RoundView.tsx` (pairings + hole-by-hole scoring), `ScoreboardView.tsx`, `TeamSetup.tsx`, `PlayerLinks.tsx`, `Register.tsx`, `VerifyEmail.tsx`, `AdminUsers.tsx`
 
 ### Key Data Flow
 
@@ -70,19 +69,29 @@ React 18 + TypeScript + Vite. Client-side routing via `react-router-dom` v6.
 
 ### Authentication
 
-Two auth methods, both producing Bearer tokens for API access:
-- **Google OAuth**: Frontend gets access token via `@react-oauth/google`, backend validates via Google's tokeninfo endpoint
-- **Email/Password**: Register at `/api/auth/register` (bcrypt hashed, requires email verification), login at `/api/auth/login` returns HMAC-signed token (`local.<payload>.<sig>`)
+Email/password auth with HMAC-signed tokens. Registration flow:
+1. User registers at `POST /api/auth/register` (password bcrypt hashed, verification token generated)
+2. Verification email sent via SMTP (or token logged to stdout if SMTP not configured)
+3. User verifies email at `POST /api/auth/verify` with the token
+4. Admin approves user at `POST /api/admin/users/confirm`
+5. User can now login at `POST /api/auth/login`, which returns an HMAC-signed token (`local.<base64url-payload>.<hmac-sig>`) with 30-day expiry
 
-Public endpoints (`/api/auth/*`) bypass the auth middleware. The middleware detects token type by the `local.` prefix.
+Public endpoints (`/api/auth/*`) bypass the auth middleware.
 
 When SMTP is not configured, verification tokens are logged to stdout for manual use.
 
 ### Authorization Model
 
-- **Admin** (email in `ADMIN_EMAILS`): full control — create tournaments, set pairings, edit results, link players
+- **Admin** (email in `ADMIN_EMAILS`): full control — create tournaments, set pairings, edit results, link players, manage users
 - **Linked player** (player's `userEmail` matches logged-in user): can edit hole results for their own matches
 - **Any authenticated user**: can view everything including hole-by-hole scores
+
+### Admin User Management
+
+Admins can manage users at `/admin/users` (frontend) or via API:
+- `GET /api/admin/users` — list all local users (password hashes stripped)
+- `POST /api/admin/users/confirm` — approve a pending user (`{"email": "..."}`)
+- `POST /api/admin/users/reject` — delete a user (`{"email": "..."}`)
 
 ### Backward Compatibility
 

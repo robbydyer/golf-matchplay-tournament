@@ -14,12 +14,11 @@ import (
 	"time"
 )
 
-type GoogleClaims struct {
+type UserClaims struct {
 	Email         string `json:"email"`
 	EmailVerified string `json:"email_verified"`
 	Name          string `json:"name"`
 	Picture       string `json:"picture"`
-	Sub           string `json:"sub"`
 	IsAdmin       bool   `json:"isAdmin"`
 }
 
@@ -34,7 +33,7 @@ type localTokenPayload struct {
 	Exp   int64  `json:"exp"`
 }
 
-// GenerateLocalToken creates an HMAC-signed token for email/password authenticated users.
+// GenerateLocalToken creates an HMAC-signed token for authenticated users.
 // Format: local.<base64url(json-payload)>.<base64url(hmac-sha256)>
 func GenerateLocalToken(email, name, secret string) (string, error) {
 	payload := localTokenPayload{
@@ -58,10 +57,10 @@ func GenerateLocalToken(email, name, secret string) (string, error) {
 }
 
 // ValidateLocalToken verifies and decodes a local auth token.
-func ValidateLocalToken(token, secret string) (*GoogleClaims, error) {
+func ValidateLocalToken(token, secret string) (*UserClaims, error) {
 	parts := strings.SplitN(token, ".", 3)
 	if len(parts) != 3 || parts[0] != "local" {
-		return nil, fmt.Errorf("not a local token")
+		return nil, fmt.Errorf("invalid token format")
 	}
 
 	payloadB64 := parts[1]
@@ -91,7 +90,7 @@ func ValidateLocalToken(token, secret string) (*GoogleClaims, error) {
 		return nil, fmt.Errorf("token expired")
 	}
 
-	return &GoogleClaims{
+	return &UserClaims{
 		Email:         payload.Email,
 		EmailVerified: "true",
 		Name:          payload.Name,
@@ -107,36 +106,7 @@ func GenerateVerificationToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// VerifyGoogleToken validates a Google OAuth2 access token using Google's tokeninfo endpoint.
-func VerifyGoogleToken(ctx context.Context, token string) (*GoogleClaims, error) {
-	url := "https://oauth2.googleapis.com/tokeninfo?access_token=" + token
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("verifying token: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid token (status %d)", resp.StatusCode)
-	}
-
-	var claims GoogleClaims
-	if err := json.NewDecoder(resp.Body).Decode(&claims); err != nil {
-		return nil, fmt.Errorf("decoding claims: %w", err)
-	}
-
-	return &claims, nil
-}
-
 // Middleware returns an HTTP middleware that verifies the Authorization header.
-// It supports both local (email/password) tokens and Google OAuth2 tokens.
 // Paths starting with /api/auth/ bypass authentication.
 // When devMode is true, any request is allowed through with a stub admin user identity.
 func Middleware(devMode bool, adminEmails map[string]bool, jwtSecret string) func(http.Handler) http.Handler {
@@ -149,12 +119,11 @@ func Middleware(devMode bool, adminEmails map[string]bool, jwtSecret string) fun
 			}
 
 			if devMode {
-				claims := &GoogleClaims{
+				claims := &UserClaims{
 					Email:         "dev@localhost",
 					EmailVerified: "true",
 					Name:          "Dev User",
 					Picture:       "",
-					Sub:           "dev-local-000",
 					IsAdmin:       true,
 				}
 				ctx := context.WithValue(r.Context(), UserKey, claims)
@@ -174,21 +143,7 @@ func Middleware(devMode bool, adminEmails map[string]bool, jwtSecret string) fun
 				return
 			}
 
-			// Try local token first
-			if strings.HasPrefix(token, "local.") {
-				claims, err := ValidateLocalToken(token, jwtSecret)
-				if err != nil {
-					http.Error(w, fmt.Sprintf(`{"error":"unauthorized: %s"}`, err.Error()), http.StatusUnauthorized)
-					return
-				}
-				claims.IsAdmin = adminEmails[strings.ToLower(claims.Email)]
-				ctx := context.WithValue(r.Context(), UserKey, claims)
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
-			}
-
-			// Fall back to Google OAuth token
-			claims, err := VerifyGoogleToken(r.Context(), token)
+			claims, err := ValidateLocalToken(token, jwtSecret)
 			if err != nil {
 				http.Error(w, fmt.Sprintf(`{"error":"unauthorized: %s"}`, err.Error()), http.StatusUnauthorized)
 				return
@@ -203,8 +158,8 @@ func Middleware(devMode bool, adminEmails map[string]bool, jwtSecret string) fun
 }
 
 // GetUser extracts the authenticated user claims from the request context.
-func GetUser(ctx context.Context) *GoogleClaims {
-	claims, _ := ctx.Value(UserKey).(*GoogleClaims)
+func GetUser(ctx context.Context) *UserClaims {
+	claims, _ := ctx.Value(UserKey).(*UserClaims)
 	return claims
 }
 

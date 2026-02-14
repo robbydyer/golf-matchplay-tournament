@@ -241,6 +241,44 @@ func (m *MemoryStore) VerifyLocalUser(_ context.Context, token string) error {
 	return fmt.Errorf("invalid verification token")
 }
 
+func (m *MemoryStore) ListLocalUsers(_ context.Context) ([]*models.LocalUser, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make([]*models.LocalUser, 0, len(m.localUsers))
+	for _, u := range m.localUsers {
+		copied := *u
+		result = append(result, &copied)
+	}
+	return result, nil
+}
+
+func (m *MemoryStore) ConfirmLocalUser(_ context.Context, email string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.localUsers[strings.ToLower(email)]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	user.Confirmed = true
+	return nil
+}
+
+func (m *MemoryStore) DeleteLocalUser(_ context.Context, email string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := strings.ToLower(email)
+	if _, ok := m.localUsers[key]; !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	delete(m.localUsers, key)
+	return nil
+}
+
 func (m *MemoryStore) LinkPlayer(_ context.Context, tournamentID string, playerID string, email string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

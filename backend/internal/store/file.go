@@ -356,6 +356,58 @@ func (f *FileStore) VerifyLocalUser(_ context.Context, token string) error {
 	return fmt.Errorf("invalid verification token")
 }
 
+func (f *FileStore) ListLocalUsers(_ context.Context) ([]*models.LocalUser, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.LocalUser, 0, len(users))
+	for _, u := range users {
+		result = append(result, u)
+	}
+	return result, nil
+}
+
+func (f *FileStore) ConfirmLocalUser(_ context.Context, email string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return err
+	}
+
+	user, ok := users[strings.ToLower(email)]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	user.Confirmed = true
+	return f.writeLocalUsers(users)
+}
+
+func (f *FileStore) DeleteLocalUser(_ context.Context, email string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return err
+	}
+
+	key := strings.ToLower(email)
+	if _, ok := users[key]; !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	delete(users, key)
+	return f.writeLocalUsers(users)
+}
+
 func (f *FileStore) UpdateHoleResult(_ context.Context, tournamentID string, roundNumber int, matchID string, hole int, result string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
