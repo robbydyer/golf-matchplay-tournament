@@ -30,6 +30,47 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
+// Public fetch for unauthenticated endpoints (register, login, verify)
+async function publicFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// --- Public auth endpoints ---
+
+export async function register(email: string, name: string, password: string): Promise<{ message: string }> {
+  return publicFetch('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, name, password }),
+  });
+}
+
+export async function emailLogin(email: string, password: string): Promise<{ token: string }> {
+  return publicFetch('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  return publicFetch('/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
 export async function getMe(): Promise<User> {
   return apiFetch<User>('/me');
 }

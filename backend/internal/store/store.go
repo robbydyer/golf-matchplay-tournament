@@ -26,4 +26,9 @@ type Store interface {
 
 	// Player-user linking
 	LinkPlayer(ctx context.Context, tournamentID string, playerID string, email string) error
+
+	// Local user registration
+	CreateLocalUser(ctx context.Context, user *models.LocalUser) error
+	GetLocalUser(ctx context.Context, email string) (*models.LocalUser, error)
+	VerifyLocalUser(ctx context.Context, token string) error
 }

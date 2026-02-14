@@ -267,6 +267,95 @@ func (f *FileStore) LinkPlayer(_ context.Context, tournamentID string, playerID 
 	return fmt.Errorf("player %s not found", playerID)
 }
 
+func (f *FileStore) localUsersPath() string {
+	return filepath.Join(f.dir, "_local_users.json")
+}
+
+func (f *FileStore) readLocalUsers() (map[string]*models.LocalUser, error) {
+	data, err := os.ReadFile(f.localUsersPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]*models.LocalUser), nil
+		}
+		return nil, fmt.Errorf("reading local users: %w", err)
+	}
+	var users map[string]*models.LocalUser
+	if err := json.Unmarshal(data, &users); err != nil {
+		return nil, fmt.Errorf("decoding local users: %w", err)
+	}
+	return users, nil
+}
+
+func (f *FileStore) writeLocalUsers(users map[string]*models.LocalUser) error {
+	data, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding local users: %w", err)
+	}
+	tmp := f.localUsersPath() + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return fmt.Errorf("writing local users: %w", err)
+	}
+	if err := os.Rename(tmp, f.localUsersPath()); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("renaming local users file: %w", err)
+	}
+	return nil
+}
+
+func (f *FileStore) CreateLocalUser(_ context.Context, user *models.LocalUser) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return err
+	}
+
+	key := strings.ToLower(user.Email)
+	if _, exists := users[key]; exists {
+		return fmt.Errorf("a user with email %s already exists", user.Email)
+	}
+
+	users[key] = user
+	return f.writeLocalUsers(users)
+}
+
+func (f *FileStore) GetLocalUser(_ context.Context, email string) (*models.LocalUser, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	user, ok := users[strings.ToLower(email)]
+	if !ok {
+		return nil, fmt.Errorf("user not found")
+	}
+	return user, nil
+}
+
+func (f *FileStore) VerifyLocalUser(_ context.Context, token string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		if user.VerificationToken == token {
+			user.EmailVerified = true
+			user.VerificationToken = ""
+			return f.writeLocalUsers(users)
+		}
+	}
+
+	return fmt.Errorf("invalid verification token")
+}
+
 func (f *FileStore) UpdateHoleResult(_ context.Context, tournamentID string, roundNumber int, matchID string, hole int, result string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

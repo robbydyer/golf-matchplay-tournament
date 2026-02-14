@@ -3,25 +3,43 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"scoring-backend/internal/auth"
+	"scoring-backend/internal/email"
 	"scoring-backend/internal/models"
 	"scoring-backend/internal/store"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
-	store store.Store
+	store     store.Store
+	emailCfg  *email.Config
+	jwtSecret string
+	appURL    string
 }
 
-func New(s store.Store) *Handler {
-	return &Handler{store: s}
+func New(s store.Store, emailCfg *email.Config, jwtSecret, appURL string) *Handler {
+	return &Handler{
+		store:     s,
+		emailCfg:  emailCfg,
+		jwtSecret: jwtSecret,
+		appURL:    appURL,
+	}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	// Public auth routes (no auth middleware)
+	mux.HandleFunc("POST /api/auth/register", h.Register)
+	mux.HandleFunc("POST /api/auth/login", h.Login)
+	mux.HandleFunc("POST /api/auth/verify", h.VerifyEmail)
+
+	// Authenticated routes
 	mux.HandleFunc("GET /api/me", h.GetMe)
 	mux.HandleFunc("GET /api/tournaments", h.ListTournaments)
 	mux.HandleFunc("POST /api/tournaments", auth.RequireAdmin(h.CreateTournament))
@@ -35,6 +53,136 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/users", auth.RequireAdmin(h.ListUsers))
 	mux.HandleFunc("PUT /api/tournaments/{id}/players/{playerId}/link", auth.RequireAdmin(h.LinkPlayer))
 }
+
+// --- Public auth handlers ---
+
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Name = strings.TrimSpace(req.Name)
+
+	if req.Email == "" || req.Name == "" || req.Password == "" {
+		writeError(w, http.StatusBadRequest, "email, name, and password are required")
+		return
+	}
+
+	if len(req.Password) < 8 {
+		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to process password")
+		return
+	}
+
+	verToken, err := auth.GenerateVerificationToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate verification token")
+		return
+	}
+
+	user := &models.LocalUser{
+		Email:             req.Email,
+		Name:              req.Name,
+		PasswordHash:      string(hash),
+		EmailVerified:     false,
+		VerificationToken: verToken,
+		CreatedAt:         time.Now(),
+	}
+
+	if err := h.store.CreateLocalUser(r.Context(), user); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	if h.emailCfg.IsConfigured() {
+		if err := h.emailCfg.SendVerification(req.Email, verToken, h.appURL); err != nil {
+			log.Printf("Failed to send verification email to %s: %v", req.Email, err)
+		}
+	} else {
+		log.Printf("Email not configured. Verification token for %s: %s", req.Email, verToken)
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]string{
+		"message": "Registration successful. Please check your email to verify your account.",
+	})
+}
+
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+	user, err := h.store.GetLocalUser(r.Context(), req.Email)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		return
+	}
+
+	if !user.EmailVerified {
+		writeError(w, http.StatusForbidden, "please verify your email before logging in")
+		return
+	}
+
+	token, err := auth.GenerateLocalToken(user.Email, user.Name, h.jwtSecret)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"token": token,
+	})
+}
+
+func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Token == "" {
+		writeError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	if err := h.store.VerifyLocalUser(r.Context(), req.Token); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Email verified successfully. You can now log in.",
+	})
+}
+
+// --- Authenticated handlers ---
 
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUser(r.Context())
@@ -114,8 +262,8 @@ type UpdateTournamentRequest struct {
 }
 
 type TeamInput struct {
-	Name    string              `json:"name"`
-	Players []PlayerInput       `json:"players"`
+	Name    string        `json:"name"`
+	Players []PlayerInput `json:"players"`
 }
 
 type PlayerInput struct {

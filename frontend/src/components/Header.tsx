@@ -8,7 +8,13 @@ export default function Header() {
       <h1>PUC Redyr Golf Scoring</h1>
       {user && (
         <div className="user-info">
-          <img src={user.picture} alt={user.name} className="avatar" />
+          {user.picture ? (
+            <img src={user.picture} alt={user.name} className="avatar" />
+          ) : (
+            <div className="avatar avatar-placeholder">
+              {user.name?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
           <span>{user.name}</span>
           <button onClick={logout} className="btn btn-sm">
             Sign Out

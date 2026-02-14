@@ -37,6 +37,15 @@ type RegisteredUser struct {
 	Picture string `json:"picture"`
 }
 
+type LocalUser struct {
+	Email             string    `json:"email"`
+	Name              string    `json:"name"`
+	PasswordHash      string    `json:"passwordHash"`
+	EmailVerified     bool      `json:"emailVerified"`
+	VerificationToken string    `json:"verificationToken,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
+}
+
 type Team struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`

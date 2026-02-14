@@ -2,6 +2,8 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
+import Register from './components/Register';
+import VerifyEmail from './components/VerifyEmail';
 import Header from './components/Header';
 import TournamentList from './components/TournamentList';
 import TournamentView from './components/TournamentView';
@@ -14,7 +16,13 @@ function AppContent() {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <Login devMode={DEV_MODE} />;
+    return (
+      <Routes>
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify" element={<VerifyEmail />} />
+        <Route path="*" element={<Login devMode={DEV_MODE} />} />
+      </Routes>
+    );
   }
 
   return (
@@ -25,6 +33,7 @@ function AppContent() {
           <Route path="/" element={<TournamentList />} />
           <Route path="/tournament/:id" element={<Navigate to="scoreboard" replace />} />
           <Route path="/tournament/:id/:tab" element={<TournamentView />} />
+          <Route path="/verify" element={<VerifyEmail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -44,16 +53,9 @@ export default function App() {
 
   if (!GOOGLE_CLIENT_ID) {
     return (
-      <div className="login-container">
-        <div className="login-card">
-          <h1>Configuration Required</h1>
-          <p>
-            Set <code>VITE_GOOGLE_CLIENT_ID</code> in a <code>.env</code> file,
-            or set <code>VITE_DEV_MODE=true</code> to skip authentication.
-          </p>
-          <pre>VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com</pre>
-        </div>
-      </div>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     );
   }
 

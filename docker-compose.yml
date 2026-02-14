@@ -10,6 +10,13 @@ services:
       - STORE_BACKEND=${STORE_BACKEND:-file}
       - DATA_DIR=/data
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - APP_URL=${APP_URL:-http://localhost:5173}
     volumes:
       - ./data:/data
 

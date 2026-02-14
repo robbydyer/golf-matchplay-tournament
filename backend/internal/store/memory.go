@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"scoring-backend/internal/models"
+	"strings"
 	"sync"
 	"time"
 )
@@ -12,12 +13,14 @@ type MemoryStore struct {
 	mu          sync.RWMutex
 	tournaments map[string]*models.Tournament
 	users       map[string]*models.RegisteredUser
+	localUsers  map[string]*models.LocalUser
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		tournaments: make(map[string]*models.Tournament),
 		users:       make(map[string]*models.RegisteredUser),
+		localUsers:  make(map[string]*models.LocalUser),
 	}
 }
 
@@ -194,6 +197,48 @@ func (m *MemoryStore) ListRegisteredUsers(_ context.Context) ([]*models.Register
 		result = append(result, &copied)
 	}
 	return result, nil
+}
+
+func (m *MemoryStore) CreateLocalUser(_ context.Context, user *models.LocalUser) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := strings.ToLower(user.Email)
+	if _, exists := m.localUsers[key]; exists {
+		return fmt.Errorf("a user with email %s already exists", user.Email)
+	}
+
+	copied := *user
+	m.localUsers[key] = &copied
+	return nil
+}
+
+func (m *MemoryStore) GetLocalUser(_ context.Context, email string) (*models.LocalUser, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	user, ok := m.localUsers[strings.ToLower(email)]
+	if !ok {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	copied := *user
+	return &copied, nil
+}
+
+func (m *MemoryStore) VerifyLocalUser(_ context.Context, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, user := range m.localUsers {
+		if user.VerificationToken == token {
+			user.EmailVerified = true
+			user.VerificationToken = ""
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid verification token")
 }
 
 func (m *MemoryStore) LinkPlayer(_ context.Context, tournamentID string, playerID string, email string) error {
