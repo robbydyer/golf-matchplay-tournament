@@ -7,7 +7,7 @@ on:
 
 env:
   PROJECT_ID: "94580489857"
-  REGISTRY: "us-east1-docker.pkg.dev/white-imprint-97912/pucredyr"
+  REGISTRY: "us-east1-docker.pkg.dev/white-imprint-97912/img"
   REPOSITORY: "pucredyr"
   SERVICE: "pucredyr"
 
