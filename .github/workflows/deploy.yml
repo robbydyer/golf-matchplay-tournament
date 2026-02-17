@@ -38,7 +38,7 @@ jobs:
 
       - name: Build and Push Container
         run: |-
-          docker build -t "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}" -f backend/Dockerfile ./
+          docker build -t "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}" -f backend/Dockerfile ./backend
           docker push "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
 
       - uses: "google-github-actions/deploy-cloudrun@v3"
