@@ -36,9 +36,14 @@ jobs:
           password: "${{ steps.auth.outputs.access_token }}"
           registry: "us-east1-docker.pkg.dev"
 
-      - name: Build and Push Container
+      - name: Build and Push Backend
         run: |-
           docker build -t "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}" -f backend/Dockerfile ./backend
+          docker push "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
+
+      - name: Build and Push Frontend
+        run: |-
+          docker build -t "${{ env.REGISTRY }}/${{ env.SERVICE }}-frontend:${{ github.sha }}" -f frontend/Dockerfile.prod ./frontend
           docker push "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
 
       - uses: "google-github-actions/deploy-cloudrun@v3"
@@ -59,3 +64,14 @@ jobs:
             SMTP_HOST=pr-smtp-host:latest
             SMTP_FROM=pr-smtp-from:latest
             JWT_SECRET=pr-jwt:latest
+
+      - uses: "google-github-actions/deploy-cloudrun@v3"
+        with:
+          image: "${{ env.REGISTRY }}/${{ env.SERVICE }}-frontend:${{ github.sha }}"
+          service: "${{ env.SERVICE }}-frontend"
+          region: us-east1
+          env_vars: |-
+            VITE_DEV_MODE=false
+          secrets: |
+            VITE_GOOGLE_CLIENT_ID=pr-google-client-id:latest
+            API_URL=pr-api-url:latest
