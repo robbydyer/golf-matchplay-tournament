@@ -1,0 +1,62 @@
+name: Puc Redyr Deployment
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  PROJECT_ID: "94580489857"
+  REGISTRY: "us-east1-docker.pkg.dev/white-imprint-97912/pucredyr"
+  REPOSITORY: "pucredyr"
+  SERVICE: "pucredyr"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - uses: "google-github-actions/auth@v3"
+        id: auth
+        with:
+          token_format: "access_token"
+          workload_identity_provider: "{{ secrets.GCP_WIF_PROVIDER }}"
+          service_account: "{{ secrets.GCP_SERVICE_ACCOUNT }}"
+
+      - name: Docker Auth
+        id: docker-auth
+        uses: "docker/login-action@v3"
+        with:
+          username: "oauth2accesstoken"
+          password: "${{ steps.auth.outputs.access_token }}"
+          registry: "us-east1-docker.pkg.dev"
+
+      - name: Build and Push Container
+        run: |-
+          docker build -t "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}" -f backend/Dockerfile ./
+          docker push "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
+
+      - uses: "google-github-actions/deploy-cloudrun@v3"
+        with:
+          image: "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
+          service: "${{ env.SERVICE }}"
+          region: us-east1
+          env_vars: |-
+            PORT=8080
+            STORE_BACKEND=firestore
+          secrets: |
+            CORS_ORIGIN=pr-cors-origin:latest
+            GCP_PROJECT_ID=gcp-project-id:latest
+            FIRESTORE_DATABASE=pr-firestore-db:latest
+            ADMIN_EMAILS=pr-admin-emails:latest
+            SMTP_PASS=pr-smtp-pass:latest
+            SMTP_USER=pr-smtp-user:latest
+            SMTP_PORT=pr-smtp-port:latest
+            SMTP_HOST=pr-smtp-host:latest
+            SMTP_FROM=pr-smtp-from:latest
+            JWT_SECRET=pr-jwt:latest
