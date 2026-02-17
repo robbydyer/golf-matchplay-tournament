@@ -47,7 +47,6 @@ jobs:
           service: "${{ env.SERVICE }}"
           region: us-east1
           env_vars: |-
-            PORT=8080
             STORE_BACKEND=firestore
           secrets: |
             CORS_ORIGIN=pr-cors-origin:latest
