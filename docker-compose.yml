@@ -17,6 +17,8 @@ services:
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
       - APP_URL=${APP_URL:-http://localhost:5173}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-}
+      - FIRESTORE_DATABASE=${FIRESTORE_DATABASE:-}
     volumes:
       - ./data:/data
 
@@ -29,5 +31,6 @@ services:
       - API_URL=http://backend:8080
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     depends_on:
       - backend

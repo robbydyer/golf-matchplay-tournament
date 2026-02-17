@@ -41,6 +41,8 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
   const [scores, setScores] = useState<Record<string, string>>({});
   const [expandedHoles, setExpandedHoles] = useState<Record<string, boolean>>({});
   const [error, setError] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [roundName, setRoundName] = useState(round.name);
 
   const playerMap = new Map<string, Player>();
   [...team1.players, ...team2.players].forEach((p) => playerMap.set(p.id, p));
@@ -116,6 +118,22 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     }
   };
 
+  const saveRoundName = async () => {
+    const trimmed = roundName.trim();
+    if (!trimmed || trimmed === round.name) {
+      setRoundName(round.name);
+      setEditingName(false);
+      return;
+    }
+    try {
+      await api.updateRoundName(tournament.id, roundNumber, trimmed);
+      setEditingName(false);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const getScore = (matchId: string) => scores[matchId] ?? '';
 
   const handleScoreChange = (matchId: string, value: string) => {
@@ -169,10 +187,27 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     return { t1, t2, halved, played: t1 + t2 + halved };
   };
 
+  const roundNameDisplay = editingName && isAdmin ? (
+    <input
+      className="round-name-input"
+      value={roundName}
+      onChange={(e) => setRoundName(e.target.value)}
+      onBlur={saveRoundName}
+      onKeyDown={(e) => { if (e.key === 'Enter') saveRoundName(); if (e.key === 'Escape') { setRoundName(round.name); setEditingName(false); } }}
+      autoFocus
+    />
+  ) : (
+    <h3
+      className={isAdmin ? 'editable-name' : ''}
+      onClick={() => { if (isAdmin) { setRoundName(round.name); setEditingName(true); } }}
+      title={isAdmin ? 'Click to edit round name' : undefined}
+    >{round.name}</h3>
+  );
+
   if (!teamsReady) {
     return (
       <div className="round-view">
-        <h3>{round.name}</h3>
+        {roundNameDisplay}
         <p className="empty">Set up both teams with 8 players before configuring rounds.</p>
       </div>
     );
@@ -186,7 +221,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     <div className="round-view">
       <div className="section-header">
         <div>
-          <h3>{round.name}</h3>
+          {roundNameDisplay}
           <span className="badge">{round.pointsPerMatch} pt/match</span>
         </div>
         {!settingUp && isAdmin && (

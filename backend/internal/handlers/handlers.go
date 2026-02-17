@@ -49,6 +49,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}", auth.RequireAdmin(h.UpdateTournament))
 	mux.HandleFunc("DELETE /api/tournaments/{id}", auth.RequireAdmin(h.DeleteTournament))
 	mux.HandleFunc("GET /api/tournaments/{id}/scoreboard", h.GetScoreboard)
+	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/name", auth.RequireAdmin(h.UpdateRoundName))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}/holes/{hole}", h.UpdateHoleResult)
@@ -117,6 +118,16 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if h.emailCfg.IsConfigured() {
 		if err := h.emailCfg.SendVerification(req.Email, verToken, h.appURL); err != nil {
 			log.Printf("Failed to send verification email to %s: %v", req.Email, err)
+		}
+		// Notify admins about the new registration
+		if !user.Confirmed {
+			admins := make([]string, 0, len(h.adminEmails))
+			for em := range h.adminEmails {
+				admins = append(admins, em)
+			}
+			if err := h.emailCfg.SendNewUserNotification(admins, req.Name, req.Email, h.appURL); err != nil {
+				log.Printf("Failed to send admin notification: %v", err)
+			}
 		}
 	} else {
 		log.Printf("Email not configured. Verification token for %s: %s", req.Email, verToken)
@@ -436,6 +447,55 @@ type MatchInput struct {
 	Team2Players []string `json:"team2Players"`
 }
 
+func (h *Handler) UpdateRoundName(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	roundNum, err := strconv.Atoi(r.PathValue("round"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid round number")
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	found := false
+	for i := range t.Rounds {
+		if t.Rounds[i].Number == roundNum {
+			t.Rounds[i].Name = req.Name
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("round %d not found", roundNum))
+		return
+	}
+
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
 func (h *Handler) SetPairings(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	roundStr := r.PathValue("round")
@@ -459,7 +519,7 @@ func (h *Handler) SetPairings(w http.ResponseWriter, r *http.Request) {
 			Team1Players: m.Team1Players,
 			Team2Players: m.Team2Players,
 			Result:       models.ResultPending,
-			HoleResults:  make(map[int]string),
+			HoleResults:  make(map[string]string),
 		}
 	}
 

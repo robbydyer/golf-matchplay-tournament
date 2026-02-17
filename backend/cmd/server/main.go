@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -40,7 +41,21 @@ func main() {
 		s = fs
 		log.Printf("Using file store (dir: %s)", dataDir)
 	case "firestore":
-		log.Fatal("Firestore backend not yet implemented. See internal/store/firestore.go for guidance.")
+		projectID := os.Getenv("GCP_PROJECT_ID")
+		if projectID == "" {
+			log.Fatal("GCP_PROJECT_ID is required for Firestore backend")
+		}
+		databaseID := os.Getenv("FIRESTORE_DATABASE")
+		fs, err := store.NewFirestoreStore(context.Background(), projectID, databaseID)
+		if err != nil {
+			log.Fatalf("Failed to initialize Firestore store: %v", err)
+		}
+		defer fs.Close()
+		s = fs
+		if databaseID == "" {
+			databaseID = "(default)"
+		}
+		log.Printf("Using Firestore store (project: %s, database: %s)", projectID, databaseID)
 	default:
 		s = store.NewMemoryStore()
 		log.Println("Using in-memory store")

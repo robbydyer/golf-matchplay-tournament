@@ -111,6 +111,17 @@ export async function getScoreboard(id: string): Promise<Scoreboard> {
   return apiFetch<Scoreboard>(`/tournaments/${id}/scoreboard`);
 }
 
+export async function updateRoundName(
+  tournamentId: string,
+  roundNumber: number,
+  name: string
+): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/name`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+}
+
 export async function setPairings(
   tournamentId: string,
   roundNumber: number,

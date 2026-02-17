@@ -34,6 +34,8 @@ Frontend dev server runs on `http://localhost:5173`, backend on `http://localhos
 Set in `.env` (loaded by docker-compose):
 - `DEV_MODE=true` — bypasses auth, all users are admin
 - `STORE_BACKEND=file` — persistence mode (`memory`, `file`, `firestore`)
+- `GCP_PROJECT_ID` — Google Cloud project ID (required when `STORE_BACKEND=firestore`)
+- `FIRESTORE_DATABASE` — Firestore database name (defaults to `(default)`)
 - `ADMIN_EMAILS=a@b.com,c@d.com` — comma-separated admin emails
 - `JWT_SECRET` — HMAC secret for signing local auth tokens (required for production)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — SMTP config for verification emails
@@ -50,9 +52,9 @@ Go standard library HTTP server (Go 1.22 method-based routing). No framework.
 - **Models**: `internal/models/models.go` — Tournament, Match, Player, Round structs; match play scoring logic (`CalculateMatchPlayResult`)
 - **Auth**: `internal/auth/auth.go` — email/password auth with HMAC-signed tokens, `RequireAdmin` middleware, dev mode bypass
 - **Email**: `internal/email/email.go` — SMTP email sending for verification
-- **Store**: `internal/store/store.go` — interface; `memory.go` (in-RAM), `file.go` (JSON files with atomic writes), `firestore.go` (stub)
+- **Store**: `internal/store/store.go` — interface; `memory.go` (in-RAM), `file.go` (JSON files with atomic writes), `firestore.go` (Google Cloud Firestore)
 
-Store pattern: all mutations read-modify-write the full tournament. FileStore uses mutex + temp-file-then-rename for atomicity. Files stored as `data/{tournament-id}.json`, user registry as `data/_users.json`, local users as `data/_local_users.json`.
+Store pattern: all mutations read-modify-write the full tournament. FileStore uses mutex + temp-file-then-rename for atomicity. Files stored as `data/{tournament-id}.json`, user registry as `data/_users.json`, local users as `data/_local_users.json`. FirestoreStore uses three collections: `tournaments`, `registered_users`, `local_users`. Requires `GCP_PROJECT_ID` and Application Default Credentials (ADC).
 
 ### Frontend (`frontend/`)
 

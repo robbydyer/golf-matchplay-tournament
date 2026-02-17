@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"scoring-backend/internal/models"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -157,17 +158,19 @@ func (m *MemoryStore) UpdateHoleResult(_ context.Context, tournamentID string, r
 			if t.Rounds[i].Matches[j].ID == matchID {
 				match := &t.Rounds[i].Matches[j]
 				if match.HoleResults == nil {
-					match.HoleResults = make(map[int]string)
+					match.HoleResults = make(map[string]string)
 				}
+				key := strconv.Itoa(hole)
 				if result == "" {
-					delete(match.HoleResults, hole)
+					delete(match.HoleResults, key)
 				} else {
-					match.HoleResults[hole] = result
+					match.HoleResults[key] = result
 				}
 				// Backfill any earlier empty holes as halved
 				for h := 1; h < hole; h++ {
-					if match.HoleResults[h] == "" {
-						match.HoleResults[h] = "halved"
+					k := strconv.Itoa(h)
+					if match.HoleResults[k] == "" {
+						match.HoleResults[k] = "halved"
 					}
 				}
 				match.Result, match.Score = models.CalculateMatchPlayResult(match.HoleResults, t.Teams[0].Name, t.Teams[1].Name)
