@@ -73,4 +73,5 @@ jobs:
             VITE_DEV_MODE=false
           secrets: |
             VITE_GOOGLE_CLIENT_ID=pr-google-client-id:latest
+            VITE_API_URL=pr-api-url:latest
             API_URL=pr-api-url:latest
