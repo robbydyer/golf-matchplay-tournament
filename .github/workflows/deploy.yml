@@ -50,7 +50,7 @@ jobs:
           image: "${{ env.REGISTRY }}/${{ env.SERVICE }}:${{ github.sha }}"
           service: "${{ env.SERVICE }}"
           region: us-east1
-          flags: '--max-instances=10 --allow-unauthenticated'
+          flags: '--max=10 --max-instances=10 --allow-unauthenticated'
           env_vars: |-
             STORE_BACKEND=firestore
           secrets: |
@@ -70,7 +70,7 @@ jobs:
           image: "${{ env.REGISTRY }}/${{ env.SERVICE }}-frontend:${{ github.sha }}"
           service: "${{ env.SERVICE }}-frontend"
           region: us-east1
-          flags: '--max-instances=10 --allow-unauthenticated'
+          flags: '--max=10 --max-instances=10 --allow-unauthenticated'
           env_vars: |-
             VITE_DEV_MODE=false
           secrets: |

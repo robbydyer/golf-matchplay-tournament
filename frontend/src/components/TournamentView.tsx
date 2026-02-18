@@ -46,6 +46,8 @@ export default function TournamentView() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
   }, [load]);
 
   if (!tournament || !scoreboard) {
