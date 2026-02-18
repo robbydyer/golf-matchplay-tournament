@@ -6,6 +6,7 @@ import ScoreboardView from './ScoreboardView';
 import TeamSetup from './TeamSetup';
 import RoundView from './RoundView';
 import PlayerLinks from './PlayerLinks';
+import Header from './Header';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function TournamentView() {
@@ -16,6 +17,7 @@ export default function TournamentView() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [scoreboard, setScoreboard] = useState<Scoreboard | null>(null);
   const [error, setError] = useState('');
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Parse tab param into activeTab and activeRound
   let activeTab: string;
@@ -50,13 +52,35 @@ export default function TournamentView() {
     return () => clearInterval(interval);
   }, [load]);
 
+  // Escape key exits fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
+
   if (!tournament || !scoreboard) {
-    return <div className="loading">Loading...</div>;
+    return <div className="loading"><div className="spinner" /><div>Loading...</div></div>;
   }
 
   const teamsReady = tournament.teams[0].players.length === 8 && tournament.teams[1].players.length === 8;
 
   const navTo = (path: string) => navigate(`/tournament/${tournamentId}/${path}`, { replace: true });
+
+  if (fullscreen && activeTab === 'scoreboard') {
+    return (
+      <div className="scoreboard-fullscreen">
+        <Header />
+        <ScoreboardView scoreboard={scoreboard} tournament={tournament} />
+        <button className="btn fullscreen-exit" onClick={() => setFullscreen(false)}>
+          Exit Fullscreen
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="tournament-view">
@@ -101,7 +125,12 @@ export default function TournamentView() {
 
       <div className="tab-content">
         {activeTab === 'scoreboard' && (
-          <ScoreboardView scoreboard={scoreboard} tournament={tournament} />
+          <>
+            <button className="btn btn-fullscreen" onClick={() => setFullscreen(true)}>
+              Fullscreen
+            </button>
+            <ScoreboardView scoreboard={scoreboard} tournament={tournament} />
+          </>
         )}
         {activeTab === 'teams' && (
           <TeamSetup tournament={tournament} onUpdate={load} isAdmin={isAdmin} />

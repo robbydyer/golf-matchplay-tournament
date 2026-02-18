@@ -9,6 +9,7 @@ export default function TournamentList() {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', team1Name: '', team2Name: '' });
   const [error, setError] = useState('');
@@ -19,6 +20,8 @@ export default function TournamentList() {
       setTournaments(list || []);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,7 +93,9 @@ export default function TournamentList() {
         </div>
       )}
 
-      {tournaments.length === 0 && !creating ? (
+      {loading ? (
+        <div className="loading"><div className="spinner" /><div>Loading...</div></div>
+      ) : tournaments.length === 0 && !creating ? (
         <p className="empty">No tournaments yet. Create one to get started.</p>
       ) : (
         <div className="card-grid">

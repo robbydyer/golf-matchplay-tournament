@@ -100,15 +100,6 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
       team2Players: p.t2.filter(Boolean),
     }));
 
-    // Validate all slots filled
-    const allFilled = matches.every(
-      (m) => m.team1Players.length === playersPerSide && m.team2Players.length === playersPerSide
-    );
-    if (!allFilled) {
-      setError('All player slots must be filled');
-      return;
-    }
-
     try {
       await api.setPairings(tournament.id, roundNumber, matches);
       setSettingUp(false);

@@ -7,7 +7,7 @@ export default function Header() {
 
   return (
     <header className="app-header">
-      <h1>PUC Redyr Golf Scoring</h1>
+      <h1>GJGC - PUC Redyr Tournament</h1>
       {user && (
         <div className="user-info">
           {user.isAdmin && (

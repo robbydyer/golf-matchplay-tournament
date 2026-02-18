@@ -71,7 +71,7 @@ export default function Login({ devMode }: { devMode: boolean }) {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>PUC Redyr Golf Scoring</h1>
+        <h1>GJGC - PUC Redyr Tournament</h1>
         <p>Sign in to manage tournament scores</p>
         {devMode ? <DevLogin /> : <EmailLoginForm />}
       </div>

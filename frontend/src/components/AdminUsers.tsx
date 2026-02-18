@@ -50,7 +50,7 @@ export default function AdminUsers() {
     }
   };
 
-  if (loading) return <div className="loading">Loading users...</div>;
+  if (loading) return <div className="loading"><div className="spinner" /><div>Loading users...</div></div>;
 
   const pending = users.filter(u => u.emailVerified && !u.confirmed);
   const active = users.filter(u => u.emailVerified && u.confirmed);
