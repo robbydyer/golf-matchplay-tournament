@@ -362,6 +362,7 @@ type UpdateTournamentRequest struct {
 
 type TeamInput struct {
 	Name    string        `json:"name"`
+	Color   string        `json:"color,omitempty"`
 	Players []PlayerInput `json:"players"`
 }
 
@@ -390,6 +391,9 @@ func (h *Handler) UpdateTournament(w http.ResponseWriter, r *http.Request) {
 	if req.Teams != nil {
 		for i := 0; i < 2; i++ {
 			t.Teams[i].Name = req.Teams[i].Name
+			if req.Teams[i].Color != "" {
+				t.Teams[i].Color = req.Teams[i].Color
+			}
 			players := make([]models.Player, len(req.Teams[i].Players))
 			for j, p := range req.Teams[i].Players {
 				playerID := uuid.New().String()

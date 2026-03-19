@@ -51,6 +51,7 @@ type LocalUser struct {
 type Team struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
+	Color   string   `json:"color,omitempty"`
 	Players []Player `json:"players"`
 }
 

@@ -94,7 +94,7 @@ export async function updateTournament(
   id: string,
   data: {
     name?: string;
-    teams?: [{ name: string; players: { name: string }[] }, { name: string; players: { name: string }[] }];
+    teams?: [{ name: string; color?: string; players: { name: string }[] }, { name: string; color?: string; players: { name: string }[] }];
   }
 ): Promise<Tournament> {
   return apiFetch<Tournament>(`/tournaments/${id}`, {

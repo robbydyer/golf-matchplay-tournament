@@ -12,6 +12,7 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
   const [teams, setTeams] = useState(() =>
     tournament.teams.map((t) => ({
       name: t.name,
+      color: t.color || '',
       players: t.players.length > 0
         ? t.players.map((p) => p.name)
         : Array(8).fill(''),
@@ -36,14 +37,20 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
     setTeams(updated);
   };
 
+  const updateTeamColor = (teamIdx: number, color: string) => {
+    const updated = [...teams];
+    updated[teamIdx] = { ...updated[teamIdx], color };
+    setTeams(updated);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
     try {
       await api.updateTournament(tournament.id, {
         teams: [
-          { name: teams[0].name, players: teams[0].players.map((n) => ({ name: n })) },
-          { name: teams[1].name, players: teams[1].players.map((n) => ({ name: n })) },
+          { name: teams[0].name, color: teams[0].color, players: teams[0].players.map((n) => ({ name: n })) },
+          { name: teams[1].name, color: teams[1].color, players: teams[1].players.map((n) => ({ name: n })) },
         ],
       });
       onUpdate();
@@ -69,6 +76,19 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
                 readOnly={!isAdmin}
               />
             </div>
+            {isAdmin && (
+              <div className="form-group team-color-group">
+                <label>Team Color</label>
+                <div className="team-color-input">
+                  <input
+                    type="color"
+                    value={team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}
+                    onChange={(e) => updateTeamColor(ti, e.target.value)}
+                  />
+                  <span>{team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}</span>
+                </div>
+              </div>
+            )}
             <h4>Players</h4>
             {team.players.map((name, pi) => (
               <div key={pi} className="form-group player-input">

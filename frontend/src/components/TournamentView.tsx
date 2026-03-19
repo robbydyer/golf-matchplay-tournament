@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Tournament, Scoreboard } from '../types';
 import * as api from '../api/client';
 import ScoreboardView from './ScoreboardView';
@@ -12,12 +12,13 @@ import { useAuth } from '../contexts/AuthContext';
 export default function TournamentView() {
   const { id: tournamentId, tab } = useParams<{ id: string; tab: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [scoreboard, setScoreboard] = useState<Scoreboard | null>(null);
   const [error, setError] = useState('');
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(() => searchParams.get('fullscreen') === 'true');
 
   // Parse tab param into activeTab and activeRound
   let activeTab: string;

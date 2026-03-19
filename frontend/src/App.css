@@ -511,6 +511,26 @@ body {
   font-weight: 700;
 }
 
+.match-row-winner-team1 {
+  background: rgba(26, 58, 107, 0.08);
+}
+
+.match-row-winner-team1 .match-team-cell:first-child {
+  border-left: 3px solid var(--color-team1);
+}
+
+.match-row-winner-team2 {
+  background: rgba(139, 26, 26, 0.08);
+}
+
+.match-row-winner-team2 .match-team-cell:last-child {
+  border-right: 3px solid var(--color-team2);
+}
+
+.match-row-tie {
+  background: rgba(133, 100, 4, 0.06);
+}
+
 .result-cell {
   text-align: center;
   font-size: 0.85rem;
@@ -566,7 +586,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px;
+  padding: clamp(8px, 1.2vh, 24px) clamp(12px, 1.5vw, 32px);
   overflow: hidden;
 }
 
@@ -597,40 +617,49 @@ body {
 }
 
 .scoreboard-fullscreen .score-total {
-  padding: 0px 0px;
+  padding: 0;
 }
 
 .scoreboard-fullscreen .team-score .score {
-  font-size: 3.0rem;
+  font-size: clamp(2rem, 3.5vw, 6.5rem);
 }
 
 .scoreboard-fullscreen .team-score .team-name {
-  font-size: 2.05rem;
+  font-size: clamp(0.9rem, 1.4vw, 2.6rem);
 }
 
 .scoreboard-fullscreen .score-divider {
-  font-size: 1.8rem;
+  font-size: clamp(1.4rem, 2.5vw, 4.55rem);
 }
 
 .scoreboard-fullscreen .round-header h4 {
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 1.1vw, 2.08rem);
 }
 
 .scoreboard-fullscreen .round-summary {
-  font-size: 1rem;
+  font-size: clamp(0.8rem, 1vw, 1.82rem);
 }
 
+/* This is the font size for player names in the fullscreen scoreboard */
 .scoreboard-fullscreen .matches-table {
-  font-size: 1.05rem;
+  font-size: clamp(0.8rem, 1vw, 2.4rem);
 }
 
 .scoreboard-fullscreen .matches-table th,
 .scoreboard-fullscreen .matches-table td {
-  padding: 6px 10px;
+  padding: clamp(3px, 0.5vh, 13px) clamp(4px, 0.6vw, 18px);
 }
 
 .scoreboard-fullscreen .matches-table th {
-  font-size: 0.85rem;
+  font-size: clamp(0.7rem, 0.85vw, 1.56rem);
+}
+
+.scoreboard-fullscreen .result-cell {
+  font-size: clamp(0.9rem, 1.3vw, 2.4rem);
+}
+
+.scoreboard-fullscreen .result-score {
+  font-size: clamp(0.8rem, 1.1vw, 2rem);
 }
 
 .fullscreen-exit {
@@ -657,6 +686,28 @@ body {
 .team-card h4 {
   margin-bottom: 8px;
   margin-top: 12px;
+}
+
+.team-color-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.team-color-input input[type="color"] {
+  width: 40px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: none;
+}
+
+.team-color-input span {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-family: monospace;
 }
 
 /* Player Links */
@@ -972,7 +1023,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Editable round name */

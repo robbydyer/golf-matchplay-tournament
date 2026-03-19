@@ -1,5 +1,14 @@
 import { Scoreboard, Tournament, Player } from '../types';
 
+// Parse hex color to rgba with given opacity
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 interface Props {
   scoreboard: Scoreboard;
   tournament: Tournament;
@@ -24,23 +33,26 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
     scoreboard.roundScores.map((rs) => [rs.roundNumber, rs])
   );
 
+  const team1Color = tournament.teams[0].color || '#1a3a6b';
+  const team2Color = tournament.teams[1].color || '#8b1a1a';
+
   return (
     <div className="scoreboard">
       <div className="score-total">
-        <div className="team-score team1">
-          <span className="team-name">{scoreboard.team1Name}</span>
-          <span className="score">{scoreboard.team1Total}</span>
+        <div className="team-score">
+          <span className="team-name" style={{ color: team1Color }}>{scoreboard.team1Name}</span>
+          <span className="score" style={{ color: team1Color }}>{scoreboard.team1Total}</span>
         </div>
         <div className="score-divider">-</div>
-        <div className="team-score team2">
-          <span className="team-name">{scoreboard.team2Name}</span>
-          <span className="score">{scoreboard.team2Total}</span>
+        <div className="team-score">
+          <span className="team-name" style={{ color: team2Color }}>{scoreboard.team2Name}</span>
+          <span className="score" style={{ color: team2Color }}>{scoreboard.team2Total}</span>
         </div>
       </div>
 
       <div className="score-bar">
-        <div className="bar-team1" style={{ width: `${team1Pct}%` }} />
-        <div className="bar-team2" style={{ width: `${team2Pct}%` }} />
+        <div className="bar-team1" style={{ width: `${team1Pct}%`, background: team1Color }} />
+        <div className="bar-team2" style={{ width: `${team2Pct}%`, background: team2Color }} />
       </div>
 
       <div className="rounds-grid">
@@ -53,9 +65,9 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
                 <h4>{round.name}</h4>
                 {rs && (
                   <div className="round-summary">
-                    <span className="round-pts team1">{rs.team1Points}</span>
+                    <span className="round-pts" style={{ color: team1Color }}>{rs.team1Points}</span>
                     <span className="round-pts-divider">-</span>
-                    <span className="round-pts team2">{rs.team2Points}</span>
+                    <span className="round-pts" style={{ color: team2Color }}>{rs.team2Points}</span>
                     <span className="round-meta">
                       {rs.pointsPerMatch} pt/match &middot; {rs.matchesPlayed}/{rs.totalMatches} played
                     </span>
@@ -92,16 +104,33 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
                       resultClass = 'result-pending';
                     }
 
+                    const rowBg = match.result === 'team1'
+                      ? hexToRgba(team1Color, 0.1)
+                      : match.result === 'team2'
+                      ? hexToRgba(team2Color, 0.1)
+                      : match.result === 'tie'
+                      ? 'rgba(133, 100, 4, 0.06)'
+                      : undefined;
+
+                    const t1Border = match.result === 'team1' ? `3px solid ${team1Color}` : undefined;
+                    const t2Border = match.result === 'team2' ? `3px solid ${team2Color}` : undefined;
+                    const resultColor = match.result === 'team1' ? team1Color
+                      : match.result === 'team2' ? team2Color
+                      : undefined;
+
                     return (
-                      <tr key={match.id}>
-                        <td className={`match-team-cell ${match.result === 'team1' ? 'winner-cell' : ''}`}>
+                      <tr key={match.id} style={rowBg ? { background: rowBg } : undefined}>
+                        <td className={`match-team-cell ${match.result === 'team1' ? 'winner-cell' : ''}`}
+                            style={t1Border ? { borderLeft: t1Border } : undefined}>
                           {t1Names}
                         </td>
-                        <td className={`result-cell ${resultClass}`}>
+                        <td className={`result-cell ${resultClass}`}
+                            style={resultColor ? { color: resultColor } : undefined}>
                           <div>{resultLabel}</div>
                           {scoreText && <div className="result-score">{scoreText}</div>}
                         </td>
-                        <td className={`match-team-cell ${match.result === 'team2' ? 'winner-cell' : ''}`}>
+                        <td className={`match-team-cell ${match.result === 'team2' ? 'winner-cell' : ''}`}
+                            style={t2Border ? { borderRight: t2Border } : undefined}>
                           {t2Names}
                         </td>
                       </tr>
