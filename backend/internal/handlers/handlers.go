@@ -673,10 +673,19 @@ func isPlayerInMatch(t *models.Tournament, roundNumber int, matchID string, emai
 }
 
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.store.ListRegisteredUsers(r.Context())
+	localUsers, err := h.store.ListLocalUsers(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	users := make([]*models.RegisteredUser, 0, len(localUsers))
+	for _, u := range localUsers {
+		if u.Confirmed {
+			users = append(users, &models.RegisteredUser{
+				Email: u.Email,
+				Name:  u.Name,
+			})
+		}
 	}
 	writeJSON(w, http.StatusOK, users)
 }
