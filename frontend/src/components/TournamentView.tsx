@@ -6,6 +6,7 @@ import ScoreboardView from './ScoreboardView';
 import TeamSetup from './TeamSetup';
 import RoundView from './RoundView';
 import PlayerLinks from './PlayerLinks';
+import ManageView from './ManageView';
 import Header from './Header';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -63,6 +64,26 @@ export default function TournamentView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [fullscreen]);
 
+  // Apply tournament colors to CSS custom properties
+  useEffect(() => {
+    if (!tournament) return;
+    const root = document.documentElement;
+    if (tournament.headerColor) {
+      root.style.setProperty('--color-primary', tournament.headerColor);
+    } else {
+      root.style.removeProperty('--color-primary');
+    }
+    if (tournament.bgColor) {
+      root.style.setProperty('--color-bg', tournament.bgColor);
+    } else {
+      root.style.removeProperty('--color-bg');
+    }
+    return () => {
+      root.style.removeProperty('--color-primary');
+      root.style.removeProperty('--color-bg');
+    };
+  }, [tournament]);
+
   if (!tournament || !scoreboard) {
     return <div className="loading"><div className="spinner" /><div>Loading...</div></div>;
   }
@@ -75,7 +96,7 @@ export default function TournamentView() {
     return (
       <div className="scoreboard-fullscreen">
         <Header />
-        <ScoreboardView scoreboard={scoreboard} tournament={tournament} />
+        <ScoreboardView scoreboard={scoreboard} tournament={tournament} fullscreen />
         <button className="btn fullscreen-exit" onClick={() => setFullscreen(false)}>
           Exit Fullscreen
         </button>
@@ -106,12 +127,20 @@ export default function TournamentView() {
           Teams
         </button>
         {isAdmin && (
-          <button
-            className={`tab ${activeTab === 'links' ? 'active' : ''}`}
-            onClick={() => navTo('links')}
-          >
-            Player Links
-          </button>
+          <>
+            <button
+              className={`tab ${activeTab === 'links' ? 'active' : ''}`}
+              onClick={() => navTo('links')}
+            >
+              Player Links
+            </button>
+            <button
+              className={`tab ${activeTab === 'manage' ? 'active' : ''}`}
+              onClick={() => navTo('manage')}
+            >
+              Manage
+            </button>
+          </>
         )}
         {[1, 2, 3, 4, 5].map((r) => (
           <button
@@ -138,6 +167,9 @@ export default function TournamentView() {
         )}
         {activeTab === 'links' && isAdmin && (
           <PlayerLinks tournament={tournament} onUpdate={load} />
+        )}
+        {activeTab === 'manage' && isAdmin && (
+          <ManageView tournament={tournament} onUpdate={load} />
         )}
         {activeTab === 'round' && (
           <RoundView

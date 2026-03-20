@@ -94,6 +94,8 @@ export async function updateTournament(
   id: string,
   data: {
     name?: string;
+    headerColor?: string;
+    bgColor?: string;
     teams?: [{ name: string; color?: string; players: { name: string }[] }, { name: string; color?: string; players: { name: string }[] }];
   }
 ): Promise<Tournament> {

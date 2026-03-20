@@ -1,3 +1,4 @@
+import { useRef, useLayoutEffect } from 'react';
 import { Scoreboard, Tournament, Player } from '../types';
 
 // Parse hex color to rgba with given opacity
@@ -12,9 +13,10 @@ function hexToRgba(hex: string, alpha: number): string {
 interface Props {
   scoreboard: Scoreboard;
   tournament: Tournament;
+  fullscreen?: boolean;
 }
 
-export default function ScoreboardView({ scoreboard, tournament }: Props) {
+export default function ScoreboardView({ scoreboard, tournament, fullscreen }: Props) {
   const maxPoints = scoreboard.roundScores.reduce(
     (sum, rs) => sum + rs.totalMatches * rs.pointsPerMatch,
     0
@@ -36,6 +38,40 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
   const team1Color = tournament.teams[0].color || '#1a3a6b';
   const team2Color = tournament.teams[1].color || '#8b1a1a';
 
+  const roundsRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!fullscreen) return;
+    const el = roundsRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      // Reset first so measurements are unaffected by previous zoom
+      (el.style as any).zoom = '';
+
+      // Each grid cell has a fixed fr height — measure per-section overflow
+      // since the grid's own scrollHeight won't capture it
+      const sections = el.querySelectorAll<HTMLElement>('.round-matches-section');
+      let maxRatio = 1;
+      sections.forEach((s) => {
+        const available = s.clientHeight;
+        const needed = s.scrollHeight;
+        if (available > 0 && needed > available) {
+          maxRatio = Math.max(maxRatio, needed / available);
+        }
+      });
+
+      if (maxRatio > 1) {
+        (el.style as any).zoom = String(1 / maxRatio);
+      }
+    };
+
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fullscreen, scoreboard, tournament]);
+
   return (
     <div className="scoreboard">
       <div className="score-total">
@@ -55,7 +91,7 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
         <div className="bar-team2" style={{ width: `${team2Pct}%`, background: team2Color }} />
       </div>
 
-      <div className="rounds-grid">
+      <div className="rounds-grid" ref={roundsRef}>
         {tournament.rounds.map((round) => {
           if (round.matches.length === 0) return null;
           const rs = roundScoreMap.get(round.number);
@@ -69,7 +105,7 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
                     <span className="round-pts-divider">-</span>
                     <span className="round-pts" style={{ color: team2Color }}>{rs.team2Points}</span>
                     <span className="round-meta">
-                      {rs.pointsPerMatch} pt/match &middot; {rs.matchesPlayed}/{rs.totalMatches} played
+                      {rs.pointsPerMatch} pt/match
                     </span>
                   </div>
                 )}
@@ -107,30 +143,30 @@ export default function ScoreboardView({ scoreboard, tournament }: Props) {
                     const rowBg = match.result === 'team1'
                       ? hexToRgba(team1Color, 0.1)
                       : match.result === 'team2'
-                      ? hexToRgba(team2Color, 0.1)
-                      : match.result === 'tie'
-                      ? 'rgba(133, 100, 4, 0.06)'
-                      : undefined;
+                        ? hexToRgba(team2Color, 0.1)
+                        : match.result === 'tie'
+                          ? 'rgba(133, 100, 4, 0.06)'
+                          : undefined;
 
                     const t1Border = match.result === 'team1' ? `3px solid ${team1Color}` : undefined;
                     const t2Border = match.result === 'team2' ? `3px solid ${team2Color}` : undefined;
                     const resultColor = match.result === 'team1' ? team1Color
                       : match.result === 'team2' ? team2Color
-                      : undefined;
+                        : undefined;
 
                     return (
                       <tr key={match.id} style={rowBg ? { background: rowBg } : undefined}>
                         <td className={`match-team-cell ${match.result === 'team1' ? 'winner-cell' : ''}`}
-                            style={t1Border ? { borderLeft: t1Border } : undefined}>
+                          style={t1Border ? { borderLeft: t1Border } : undefined}>
                           {t1Names}
                         </td>
                         <td className={`result-cell ${resultClass}`}
-                            style={resultColor ? { color: resultColor } : undefined}>
+                          style={resultColor ? { color: resultColor } : undefined}>
                           <div>{resultLabel}</div>
                           {scoreText && <div className="result-score">{scoreText}</div>}
                         </td>
                         <td className={`match-team-cell ${match.result === 'team2' ? 'winner-cell' : ''}`}
-                            style={t2Border ? { borderRight: t2Border } : undefined}>
+                          style={t2Border ? { borderRight: t2Border } : undefined}>
                           {t2Names}
                         </td>
                       </tr>

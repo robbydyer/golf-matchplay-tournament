@@ -117,12 +117,14 @@ type Round struct {
 }
 
 type Tournament struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Teams     [2]Team   `json:"teams"`
-	Rounds    []Round   `json:"rounds"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Teams       [2]Team   `json:"teams"`
+	Rounds      []Round   `json:"rounds"`
+	HeaderColor string    `json:"headerColor,omitempty"`
+	BgColor     string    `json:"bgColor,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type Scoreboard struct {

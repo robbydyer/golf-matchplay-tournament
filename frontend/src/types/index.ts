@@ -46,6 +46,8 @@ export interface Tournament {
   name: string;
   teams: [Team, Team];
   rounds: Round[];
+  headerColor?: string;
+  bgColor?: string;
   createdAt: string;
   updatedAt: string;
 }

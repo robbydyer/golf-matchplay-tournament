@@ -356,8 +356,10 @@ func (h *Handler) GetTournament(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateTournamentRequest struct {
-	Name  string        `json:"name,omitempty"`
-	Teams *[2]TeamInput `json:"teams,omitempty"`
+	Name        string        `json:"name,omitempty"`
+	Teams       *[2]TeamInput `json:"teams,omitempty"`
+	HeaderColor string        `json:"headerColor,omitempty"`
+	BgColor     string        `json:"bgColor,omitempty"`
 }
 
 type TeamInput struct {
@@ -386,6 +388,13 @@ func (h *Handler) UpdateTournament(w http.ResponseWriter, r *http.Request) {
 
 	if req.Name != "" {
 		t.Name = req.Name
+	}
+
+	if req.HeaderColor != "" {
+		t.HeaderColor = req.HeaderColor
+	}
+	if req.BgColor != "" {
+		t.BgColor = req.BgColor
 	}
 
 	if req.Teams != nil {

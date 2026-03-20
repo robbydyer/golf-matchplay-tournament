@@ -642,7 +642,7 @@ body {
 
 /* This is the font size for player names in the fullscreen scoreboard */
 .scoreboard-fullscreen .matches-table {
-  font-size: clamp(0.8rem, 1vw, 2.4rem);
+  font-size: clamp(0.8rem, 1vw, 3.0rem);
 }
 
 .scoreboard-fullscreen .matches-table th,
@@ -655,11 +655,11 @@ body {
 }
 
 .scoreboard-fullscreen .result-cell {
-  font-size: clamp(0.9rem, 1.3vw, 2.4rem);
+  font-size: clamp(0.9rem, 1.0vw, 2.0rem);
 }
 
 .scoreboard-fullscreen .result-score {
-  font-size: clamp(0.8rem, 1.1vw, 2rem);
+  font-size: clamp(0.8rem, 1.0vw, 1.8rem);
 }
 
 .fullscreen-exit {
@@ -708,6 +708,22 @@ body {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
   font-family: monospace;
+}
+
+/* Manage */
+.manage-card {
+  max-width: 480px;
+}
+
+.manage-card h3 {
+  margin-bottom: 20px;
+}
+
+.manage-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 /* Player Links */
