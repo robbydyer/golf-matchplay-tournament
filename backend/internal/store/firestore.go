@@ -470,8 +470,22 @@ func (f *FirestoreStore) DeleteLocalUser(ctx context.Context, email string) erro
 		return fmt.Errorf("getting user: %w", err)
 	}
 
-	if _, err := ref.Delete(ctx); err != nil {
-		return fmt.Errorf("deleting user: %w", err)
+	_, err = ref.Update(ctx, []firestore.Update{{Path: "Disabled", Value: true}})
+	return err
+}
+
+func (f *FirestoreStore) EnableLocalUser(ctx context.Context, email string) error {
+	key := strings.ToLower(email)
+	ref := f.localUsers().Doc(key)
+
+	_, err := ref.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return fmt.Errorf("user not found")
+		}
+		return fmt.Errorf("getting user: %w", err)
 	}
-	return nil
+
+	_, err = ref.Update(ctx, []firestore.Update{{Path: "Disabled", Value: false}})
+	return err
 }

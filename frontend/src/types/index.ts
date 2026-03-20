@@ -83,5 +83,6 @@ export interface LocalUserInfo {
   name: string;
   emailVerified: boolean;
   confirmed: boolean;
+  disabled?: boolean;
   createdAt: string;
 }

@@ -274,11 +274,26 @@ func (m *MemoryStore) DeleteLocalUser(_ context.Context, email string) error {
 	defer m.mu.Unlock()
 
 	key := strings.ToLower(email)
-	if _, ok := m.localUsers[key]; !ok {
+	user, ok := m.localUsers[key]
+	if !ok {
 		return fmt.Errorf("user not found")
 	}
 
-	delete(m.localUsers, key)
+	user.Disabled = true
+	return nil
+}
+
+func (m *MemoryStore) EnableLocalUser(_ context.Context, email string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := strings.ToLower(email)
+	user, ok := m.localUsers[key]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	user.Disabled = false
 	return nil
 }
 

@@ -201,3 +201,10 @@ export async function rejectUser(email: string): Promise<{ message: string }> {
     body: JSON.stringify({ email }),
   });
 }
+
+export async function enableUser(email: string): Promise<{ message: string }> {
+  return apiFetch('/admin/users/enable', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}

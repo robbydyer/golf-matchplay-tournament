@@ -401,11 +401,31 @@ func (f *FileStore) DeleteLocalUser(_ context.Context, email string) error {
 	}
 
 	key := strings.ToLower(email)
-	if _, ok := users[key]; !ok {
+	user, ok := users[key]
+	if !ok {
 		return fmt.Errorf("user not found")
 	}
 
-	delete(users, key)
+	user.Disabled = true
+	return f.writeLocalUsers(users)
+}
+
+func (f *FileStore) EnableLocalUser(_ context.Context, email string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	users, err := f.readLocalUsers()
+	if err != nil {
+		return err
+	}
+
+	key := strings.ToLower(email)
+	user, ok := users[key]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+
+	user.Disabled = false
 	return f.writeLocalUsers(users)
 }
 

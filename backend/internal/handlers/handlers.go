@@ -60,6 +60,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/admin/users", auth.RequireAdmin(h.ListLocalUsersAdmin))
 	mux.HandleFunc("POST /api/admin/users/confirm", auth.RequireAdmin(h.ConfirmUser))
 	mux.HandleFunc("POST /api/admin/users/reject", auth.RequireAdmin(h.RejectUser))
+	mux.HandleFunc("POST /api/admin/users/enable", auth.RequireAdmin(h.EnableUser))
 }
 
 // --- Public auth handlers ---
@@ -171,6 +172,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.Disabled {
+		writeError(w, http.StatusForbidden, "your account has been disabled")
+		return
+	}
+
 	token, err := auth.GenerateLocalToken(user.Email, user.Name, h.jwtSecret)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
@@ -220,6 +226,7 @@ func (h *Handler) ListLocalUsersAdmin(w http.ResponseWriter, r *http.Request) {
 		Name          string    `json:"name"`
 		EmailVerified bool      `json:"emailVerified"`
 		Confirmed     bool      `json:"confirmed"`
+		Disabled      bool      `json:"disabled"`
 		CreatedAt     time.Time `json:"createdAt"`
 	}
 
@@ -230,6 +237,7 @@ func (h *Handler) ListLocalUsersAdmin(w http.ResponseWriter, r *http.Request) {
 			Name:          u.Name,
 			EmailVerified: u.EmailVerified,
 			Confirmed:     u.Confirmed,
+			Disabled:      u.Disabled,
 			CreatedAt:     u.CreatedAt,
 		}
 	}
@@ -279,6 +287,28 @@ func (h *Handler) RejectUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
+}
+
+func (h *Handler) EnableUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	if err := h.store.EnableLocalUser(r.Context(), req.Email); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "user enabled"})
 }
 
 // --- Authenticated handlers ---

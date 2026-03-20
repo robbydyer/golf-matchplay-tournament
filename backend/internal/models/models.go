@@ -44,6 +44,7 @@ type LocalUser struct {
 	PasswordHash      string    `json:"passwordHash"`
 	EmailVerified     bool      `json:"emailVerified"`
 	Confirmed         bool      `json:"confirmed"`
+	Disabled          bool      `json:"disabled,omitempty"`
 	VerificationToken string    `json:"verificationToken,omitempty"`
 	CreatedAt         time.Time `json:"createdAt"`
 }

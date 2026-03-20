@@ -34,4 +34,5 @@ type Store interface {
 	ListLocalUsers(ctx context.Context) ([]*models.LocalUser, error)
 	ConfirmLocalUser(ctx context.Context, email string) error
 	DeleteLocalUser(ctx context.Context, email string) error
+	EnableLocalUser(ctx context.Context, email string) error
 }

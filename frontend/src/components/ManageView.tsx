@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Tournament } from '../types';
+import { useState, useEffect } from 'react';
+import { Tournament, LocalUserInfo } from '../types';
 import * as api from '../api/client';
 
 interface Props {
@@ -16,6 +16,25 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [users, setUsers] = useState<LocalUserInfo[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
+  const [approvingEmail, setApprovingEmail] = useState<string | null>(null);
+  const [enablingEmail, setEnablingEmail] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    try {
+      const data = await api.listLocalUsers();
+      setUsers(data);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
@@ -29,9 +48,46 @@ export default function ManageView({ tournament, onUpdate }: Props) {
     }
   };
 
-  const handleReset = async () => {
+  const handleReset = () => {
     setHeaderColor(DEFAULT_HEADER);
     setBgColor(DEFAULT_BG);
+  };
+
+  const handleApprove = async (email: string) => {
+    setApprovingEmail(email);
+    try {
+      await api.confirmUser(email);
+      await loadUsers();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setApprovingEmail(null);
+    }
+  };
+
+  const handleDelete = async (email: string) => {
+    if (!confirm(`Disable user ${email}?`)) return;
+    setDeletingEmail(email);
+    try {
+      await api.rejectUser(email);
+      await loadUsers();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDeletingEmail(null);
+    }
+  };
+
+  const handleEnable = async (email: string) => {
+    setEnablingEmail(email);
+    try {
+      await api.enableUser(email);
+      await loadUsers();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setEnablingEmail(null);
+    }
   };
 
   return (
@@ -75,6 +131,67 @@ export default function ManageView({ tournament, onUpdate }: Props) {
             Reset to Defaults
           </button>
         </div>
+      </div>
+
+      <div className="card manage-card">
+        <h3>Users</h3>
+        {usersLoading ? (
+          <div className="loading"><div className="spinner" /><div>Loading...</div></div>
+        ) : users.length === 0 ? (
+          <p className="empty">No users.</p>
+        ) : (
+          <table className="manage-users-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.email}>
+                  <td>{u.name}</td>
+                  <td>{u.email}</td>
+                  <td>
+                    {u.disabled ? 'Disabled' : !u.emailVerified ? 'Unverified' : !u.confirmed ? 'Pending approval' : 'Active'}
+                  </td>
+                  <td>
+                    <div className="manage-users-actions">
+                      {u.emailVerified && !u.confirmed && !u.disabled && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleApprove(u.email)}
+                          disabled={approvingEmail === u.email}
+                        >
+                          {approvingEmail === u.email ? '...' : 'Approve'}
+                        </button>
+                      )}
+                      {u.disabled ? (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleEnable(u.email)}
+                          disabled={enablingEmail === u.email}
+                        >
+                          {enablingEmail === u.email ? '...' : 'Reactivate'}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(u.email)}
+                          disabled={deletingEmail === u.email}
+                        >
+                          {deletingEmail === u.email ? '...' : 'Disable'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

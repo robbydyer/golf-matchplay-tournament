@@ -753,7 +753,7 @@ body {
 
 /* Manage */
 .manage-card {
-  max-width: 480px;
+  max-width: 640px;
 }
 
 .manage-card h3 {
@@ -765,6 +765,32 @@ body {
   flex-direction: column;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.manage-users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.manage-users-table th,
+.manage-users-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.manage-users-table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.manage-users-actions {
+  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* Player Links */
