@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tournament } from '../types';
 import * as api from '../api/client';
 
@@ -13,6 +13,7 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
     tournament.teams.map((t) => ({
       name: t.name,
       color: t.color || '',
+      logo: t.logo || '',
       players: t.players.length > 0
         ? t.players.map((p) => p.name)
         : Array(8).fill(''),
@@ -20,6 +21,13 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.listPublicImages().then(setImages).catch(() => {});
+    }
+  }, [isAdmin]);
 
   const updatePlayerName = (teamIdx: number, playerIdx: number, name: string) => {
     const updated = [...teams];
@@ -43,14 +51,20 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
     setTeams(updated);
   };
 
+  const updateTeamLogo = (teamIdx: number, logo: string) => {
+    const updated = [...teams];
+    updated[teamIdx] = { ...updated[teamIdx], logo };
+    setTeams(updated);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
     try {
       await api.updateTournament(tournament.id, {
         teams: [
-          { name: teams[0].name, color: teams[0].color, players: teams[0].players.map((n) => ({ name: n })) },
-          { name: teams[1].name, color: teams[1].color, players: teams[1].players.map((n) => ({ name: n })) },
+          { name: teams[0].name, color: teams[0].color, logo: teams[0].logo, players: teams[0].players.map((n) => ({ name: n })) },
+          { name: teams[1].name, color: teams[1].color, logo: teams[1].logo, players: teams[1].players.map((n) => ({ name: n })) },
         ],
       });
       onUpdate();
@@ -77,17 +91,40 @@ export default function TeamSetup({ tournament, onUpdate, isAdmin }: Props) {
               />
             </div>
             {isAdmin && (
-              <div className="form-group team-color-group">
-                <label>Team Color</label>
-                <div className="team-color-input">
-                  <input
-                    type="color"
-                    value={team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}
-                    onChange={(e) => updateTeamColor(ti, e.target.value)}
-                  />
-                  <span>{team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}</span>
+              <>
+                <div className="form-group team-color-group">
+                  <label>Team Color</label>
+                  <div className="team-color-input">
+                    <input
+                      type="color"
+                      value={team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}
+                      onChange={(e) => updateTeamColor(ti, e.target.value)}
+                    />
+                    <span>{team.color || (ti === 0 ? '#1a3a6b' : '#8b1a1a')}</span>
+                  </div>
                 </div>
-              </div>
+                <div className="form-group">
+                  <label>Team Logo</label>
+                  <div className="logo-picker">
+                    <select
+                      value={team.logo}
+                      onChange={(e) => updateTeamLogo(ti, e.target.value)}
+                    >
+                      <option value="">— No logo —</option>
+                      {images.map((img) => (
+                        <option key={img} value={img}>{img}</option>
+                      ))}
+                    </select>
+                    {team.logo && (
+                      <img
+                        className="logo-preview"
+                        src={`/${team.logo}`}
+                        alt="logo preview"
+                      />
+                    )}
+                  </div>
+                </div>
+              </>
             )}
             <h4>Players</h4>
             {team.players.map((name, pi) => (

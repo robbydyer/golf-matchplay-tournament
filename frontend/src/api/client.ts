@@ -96,7 +96,7 @@ export async function updateTournament(
     name?: string;
     headerColor?: string;
     bgColor?: string;
-    teams?: [{ name: string; color?: string; players: { name: string }[] }, { name: string; color?: string; players: { name: string }[] }];
+    teams?: [{ name: string; color?: string; logo?: string; players: { name: string }[] }, { name: string; color?: string; logo?: string; players: { name: string }[] }];
   }
 ): Promise<Tournament> {
   return apiFetch<Tournament>(`/tournaments/${id}`, {
@@ -150,6 +150,12 @@ export async function updateMatchResult(
 
 export async function listUsers(): Promise<RegisteredUser[]> {
   return apiFetch<RegisteredUser[]>('/users');
+}
+
+export async function listPublicImages(): Promise<string[]> {
+  const res = await fetch('/images.json');
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function linkPlayer(

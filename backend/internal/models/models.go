@@ -52,6 +52,7 @@ type Team struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	Color   string   `json:"color,omitempty"`
+	Logo    string   `json:"logo,omitempty"`
 	Players []Player `json:"players"`
 }
 

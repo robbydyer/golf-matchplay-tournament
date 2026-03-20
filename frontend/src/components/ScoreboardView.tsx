@@ -75,16 +75,28 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
   return (
     <div className="scoreboard">
       <div className="score-total">
+        {tournament.teams[0].logo && (
+          <img className="team-logo team-logo-left" src={`/${tournament.teams[0].logo}`} alt={scoreboard.team1Name} />
+        )}
         <div className="team-score">
           <span className="team-name" style={{ color: team1Color }}>{scoreboard.team1Name}</span>
           <span className="score" style={{ color: team1Color }}>{scoreboard.team1Total}</span>
         </div>
         <div className="score-divider">-</div>
         <div className="team-score">
-          <span className="team-name" style={{ color: team2Color }}>{scoreboard.team2Name}</span>
           <span className="score" style={{ color: team2Color }}>{scoreboard.team2Total}</span>
+          <span className="team-name" style={{ color: team2Color }}>{scoreboard.team2Name}</span>
         </div>
+        {tournament.teams[1].logo && (
+          <img className="team-logo team-logo-right" src={`/${tournament.teams[1].logo}`} alt={scoreboard.team2Name} />
+        )}
       </div>
+
+      {maxPoints > 0 && (
+        <div className="score-win-target">
+          {maxPoints / 2 + 0.5} points needed to win
+        </div>
+      )}
 
       <div className="score-bar">
         <div className="bar-team1" style={{ width: `${team1Pct}%`, background: team1Color }} />
