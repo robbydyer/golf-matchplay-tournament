@@ -115,6 +115,7 @@ type Round struct {
 	Name           string    `json:"name"`
 	Type           RoundType `json:"type"`
 	PointsPerMatch float64   `json:"pointsPerMatch"`
+	Locked         bool      `json:"locked,omitempty"`
 	Matches        []Match   `json:"matches"`
 }
 
@@ -125,6 +126,7 @@ type Tournament struct {
 	Rounds      []Round   `json:"rounds"`
 	HeaderColor string    `json:"headerColor,omitempty"`
 	BgColor     string    `json:"bgColor,omitempty"`
+	Locked      bool      `json:"locked,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }

@@ -49,7 +49,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}", auth.RequireAdmin(h.UpdateTournament))
 	mux.HandleFunc("DELETE /api/tournaments/{id}", auth.RequireAdmin(h.DeleteTournament))
 	mux.HandleFunc("GET /api/tournaments/{id}/scoreboard", h.GetScoreboard)
+	mux.HandleFunc("PUT /api/tournaments/{id}/lock", auth.RequireAdmin(h.LockTournament))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/name", auth.RequireAdmin(h.UpdateRoundName))
+	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/lock", auth.RequireAdmin(h.LockRound))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}/holes/{hole}", h.UpdateHoleResult)
@@ -492,6 +494,74 @@ type MatchInput struct {
 	Team2Players []string `json:"team2Players"`
 }
 
+func (h *Handler) LockTournament(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	var req struct {
+		Locked bool `json:"locked"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	t.Locked = req.Locked
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *Handler) LockRound(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	roundNum, err := strconv.Atoi(r.PathValue("round"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid round number")
+		return
+	}
+
+	var req struct {
+		Locked bool `json:"locked"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	found := false
+	for i := range t.Rounds {
+		if t.Rounds[i].Number == roundNum {
+			t.Rounds[i].Locked = req.Locked
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("round %d not found", roundNum))
+		return
+	}
+
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
 func (h *Handler) UpdateRoundName(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	roundNum, err := strconv.Atoi(r.PathValue("round"))
@@ -663,6 +733,16 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
+		}
+		if t.Locked {
+			writeError(w, http.StatusForbidden, "this tournament is locked")
+			return
+		}
+		for _, round := range t.Rounds {
+			if round.Number == roundNum && round.Locked {
+				writeError(w, http.StatusForbidden, "this round is locked")
+				return
+			}
 		}
 		if !isPlayerInMatch(t, roundNum, matchID, strings.ToLower(user.Email)) {
 			writeError(w, http.StatusForbidden, "you are not a player in this match")

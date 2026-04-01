@@ -32,10 +32,15 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     );
   };
 
+  const isLocked = tournament.locked || round.locked;
+
   const canEditHoles = (match: Match): boolean => {
-    return isAdmin || isPlayerInMatch(match);
+    if (isAdmin) return true;
+    if (isLocked) return false;
+    return isPlayerInMatch(match);
   };
 
+  const [lockingRound, setLockingRound] = useState(false);
   const [settingUp, setSettingUp] = useState(false);
   const [pairings, setPairings] = useState<{ t1: string[]; t2: string[] }[]>([]);
   const [scores, setScores] = useState<Record<string, string>>({});
@@ -106,6 +111,18 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
       onUpdate();
     } catch (e: any) {
       setError(e.message);
+    }
+  };
+
+  const toggleRoundLock = async () => {
+    setLockingRound(true);
+    try {
+      await api.lockRound(tournament.id, roundNumber, !round.locked);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLockingRound(false);
     }
   };
 
@@ -215,20 +232,37 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
           {roundNameDisplay}
           <span className="badge">{round.pointsPerMatch} pt/match</span>
         </div>
-        {!settingUp && isAdmin && (
-          round.matches.length === 0 ? (
-            <button className="btn btn-primary" onClick={initPairings}>
-              Set Up Pairings
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {isAdmin && (
+            <button
+              className={`btn btn-sm ${round.locked ? 'btn-primary' : ''}`}
+              onClick={toggleRoundLock}
+              disabled={lockingRound}
+              title={round.locked ? 'Unlock this round' : 'Lock this round'}
+            >
+              {lockingRound ? '...' : round.locked ? '🔒 Locked' : '🔓 Lock Round'}
             </button>
-          ) : (
-            <button className="btn" onClick={editPairings}>
-              Edit Pairings
-            </button>
-          )
-        )}
+          )}
+          {!round.locked && !settingUp && isAdmin && (
+            round.matches.length === 0 ? (
+              <button className="btn btn-primary" onClick={initPairings}>
+                Set Up Pairings
+              </button>
+            ) : (
+              <button className="btn" onClick={editPairings}>
+                Edit Pairings
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
+      {!isAdmin && isLocked && (
+        <div className="info-banner">
+          {tournament.locked ? 'This tournament is locked.' : 'This round is locked.'} Scores are read-only.
+        </div>
+      )}
 
       {settingUp && (
         <div className="pairings-setup">

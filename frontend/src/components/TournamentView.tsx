@@ -20,6 +20,8 @@ export default function TournamentView() {
   const [scoreboard, setScoreboard] = useState<Scoreboard | null>(null);
   const [error, setError] = useState('');
   const [fullscreen, setFullscreen] = useState(() => searchParams.get('fullscreen') === 'true');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
 
   // Parse tab param into activeTab and activeRound
   let activeTab: string;
@@ -90,6 +92,21 @@ export default function TournamentView() {
 
   const teamsReady = tournament.teams[0].players.length === 8 && tournament.teams[1].players.length === 8;
 
+  const saveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === tournament.name) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      await api.updateTournament(tournament.id, { name: trimmed });
+      setEditingName(false);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const navTo = (path: string) => navigate(`/tournament/${tournamentId}/${path}`, { replace: true });
 
   if (fullscreen && activeTab === 'scoreboard') {
@@ -108,7 +125,27 @@ export default function TournamentView() {
     <div className="tournament-view">
       <div className="tournament-header">
         <button className="btn" onClick={() => navigate('/')}>&larr; Back</button>
-        <h2>{tournament.name}</h2>
+        {editingName ? (
+          <input
+            className="tournament-name-input"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveName();
+              if (e.key === 'Escape') setEditingName(false);
+            }}
+            autoFocus
+          />
+        ) : (
+          <h2
+            className={isAdmin ? 'editable-name' : ''}
+            onClick={() => { if (isAdmin) { setNameInput(tournament.name); setEditingName(true); } }}
+            title={isAdmin ? 'Click to edit tournament name' : undefined}
+          >
+            {tournament.name}
+          </h2>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}

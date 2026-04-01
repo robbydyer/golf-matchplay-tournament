@@ -14,6 +14,7 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const [headerColor, setHeaderColor] = useState(tournament.headerColor || DEFAULT_HEADER);
   const [bgColor, setBgColor] = useState(tournament.bgColor || DEFAULT_BG);
   const [saving, setSaving] = useState(false);
+  const [locking, setLocking] = useState(false);
   const [error, setError] = useState('');
 
   const [users, setUsers] = useState<LocalUserInfo[]>([]);
@@ -51,6 +52,19 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const handleReset = () => {
     setHeaderColor(DEFAULT_HEADER);
     setBgColor(DEFAULT_BG);
+  };
+
+  const handleToggleLock = async () => {
+    setLocking(true);
+    setError('');
+    try {
+      await api.lockTournament(tournament.id, !tournament.locked);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLocking(false);
+    }
   };
 
   const handleApprove = async (email: string) => {
@@ -129,6 +143,24 @@ export default function ManageView({ tournament, onUpdate }: Props) {
           </button>
           <button className="btn" onClick={handleReset}>
             Reset to Defaults
+          </button>
+        </div>
+      </div>
+
+      <div className="card manage-card">
+        <h3>Tournament Lock</h3>
+        <p style={{ marginBottom: '1rem', color: '#555' }}>
+          {tournament.locked
+            ? 'Tournament is locked. Players cannot edit hole results. Admins can still make changes.'
+            : 'Tournament is unlocked. Linked players can enter hole results for their matches.'}
+        </p>
+        <div className="form-actions">
+          <button
+            className={`btn ${tournament.locked ? 'btn-primary' : 'btn-danger'}`}
+            onClick={handleToggleLock}
+            disabled={locking}
+          >
+            {locking ? '...' : tournament.locked ? 'Unlock Tournament' : 'Lock Tournament'}
           </button>
         </div>
       </div>

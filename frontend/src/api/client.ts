@@ -105,6 +105,20 @@ export async function updateTournament(
   });
 }
 
+export async function lockTournament(id: string, locked: boolean): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${id}/lock`, {
+    method: 'PUT',
+    body: JSON.stringify({ locked }),
+  });
+}
+
+export async function lockRound(tournamentId: string, round: number, locked: boolean): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${round}/lock`, {
+    method: 'PUT',
+    body: JSON.stringify({ locked }),
+  });
+}
+
 export async function deleteTournament(id: string): Promise<void> {
   return apiFetch<void>(`/tournaments/${id}`, { method: 'DELETE' });
 }
