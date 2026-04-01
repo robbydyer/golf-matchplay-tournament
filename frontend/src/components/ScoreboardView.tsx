@@ -38,7 +38,10 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
   const team1Color = tournament.teams[0].color || '#1a3a6b';
   const team2Color = tournament.teams[1].color || '#8b1a1a';
 
+  const hasAnyMatches = tournament.rounds.some((r) => r.matches.length > 0);
+
   const roundsRef = useRef<HTMLDivElement>(null);
+  const rosterRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (!fullscreen) return;
@@ -72,6 +75,27 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
     return () => ro.disconnect();
   }, [fullscreen, scoreboard, tournament]);
 
+  useLayoutEffect(() => {
+    if (hasAnyMatches) return;
+    const el = rosterRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      (el.style as any).zoom = '';
+      const top = el.getBoundingClientRect().top;
+      const available = window.innerHeight - top - 16; // 16px bottom breathing room
+      const needed = el.scrollHeight;
+      if (available > 0 && needed > 0) {
+        (el.style as any).zoom = String(available / needed);
+      }
+    };
+
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasAnyMatches, scoreboard, tournament]);
+
   return (
     <div className="scoreboard">
       <div className="score-total">
@@ -102,6 +126,28 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
         <div className="bar-team1" style={{ width: `${team1Pct}%`, background: team1Color }} />
         <div className="bar-team2" style={{ width: `${team2Pct}%`, background: team2Color }} />
       </div>
+
+      {!hasAnyMatches && (
+        <div className="scoreboard-rosters" ref={rosterRef}>
+          {tournament.teams.map((team, i) => {
+            const color = i === 0 ? team1Color : team2Color;
+            return (
+              <div key={team.id} className="roster-card">
+                <h3 style={{ color }}>{team.name}</h3>
+                {team.players.length === 0 ? (
+                  <p className="empty">No players yet.</p>
+                ) : (
+                  <ol className="roster-list">
+                    {team.players.map((p) => (
+                      <li key={p.id}>{p.name}</li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="rounds-grid" ref={roundsRef}>
         {tournament.rounds.map((round) => {
