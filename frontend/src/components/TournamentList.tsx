@@ -17,7 +17,7 @@ export default function TournamentList() {
   const load = async () => {
     try {
       const list = await api.listTournaments();
-      setTournaments(list || []);
+      setTournaments((list || []).sort((a, b) => a.name.localeCompare(b.name)));
     } catch (e: any) {
       setError(e.message);
     } finally {
