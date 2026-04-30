@@ -40,6 +40,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     return isPlayerInMatch(match);
   };
 
+  const holeCount = round.holes || 18;
   const [lockingRound, setLockingRound] = useState(false);
   const [settingUp, setSettingUp] = useState(false);
   const [pairings, setPairings] = useState<{ t1: string[]; t2: string[] }[]>([]);
@@ -114,6 +115,15 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     }
   };
 
+  const handleHolesChange = async (holes: number) => {
+    try {
+      await api.updateRoundHoles(tournament.id, roundNumber, holes);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const toggleRoundLock = async () => {
     setLockingRound(true);
     try {
@@ -174,8 +184,7 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
 
   const handleHoleResult = async (match: Match, hole: number, result: HoleResult) => {
     try {
-      const current = (match.holeResults?.[hole] || '') as HoleResult;
-      // Toggle: if already set to this result, clear it
+      const current = (match.holeResults?.[String(hole)] || '') as HoleResult;
       const newResult: HoleResult = current === result ? '' : result;
       await api.updateHoleResult(tournament.id, roundNumber, match.id, hole, newResult);
       onUpdate();
@@ -187,7 +196,8 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
   const getHoleStatus = (match: Match) => {
     if (!match.holeResults) return { t1: 0, t2: 0, halved: 0, played: 0 };
     let t1 = 0, t2 = 0, halved = 0;
-    for (const r of Object.values(match.holeResults)) {
+    for (let h = 1; h <= holeCount; h++) {
+      const r = match.holeResults[String(h)];
       if (r === 'team1') t1++;
       else if (r === 'team2') t2++;
       else if (r === 'halved') halved++;
@@ -234,14 +244,28 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {isAdmin && (
-            <button
-              className={`btn btn-sm ${round.locked ? 'btn-primary' : ''}`}
-              onClick={toggleRoundLock}
-              disabled={lockingRound}
-              title={round.locked ? 'Unlock this round' : 'Lock this round'}
-            >
-              {lockingRound ? '...' : round.locked ? '🔒 Locked' : '🔓 Lock Round'}
-            </button>
+            <>
+              <label style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                Holes:&nbsp;
+                <select
+                  value={holeCount}
+                  onChange={(e) => handleHolesChange(Number(e.target.value))}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  {[9, 18].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className={`btn btn-sm ${round.locked ? 'btn-primary' : ''}`}
+                onClick={toggleRoundLock}
+                disabled={lockingRound}
+                title={round.locked ? 'Unlock this round' : 'Lock this round'}
+              >
+                {lockingRound ? '...' : round.locked ? '🔒 Locked' : '🔓 Lock Round'}
+              </button>
+            </>
           )}
           {!round.locked && !settingUp && isAdmin && (
             round.matches.length === 0 ? (
@@ -413,9 +437,9 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
                 </button>
                 {expandedHoles[match.id] && (
                   <div className="holes-grid">
-                    {Array.from({ length: 18 }, (_, i) => {
+                    {Array.from({ length: holeCount }, (_, i) => {
                       const holeNum = i + 1;
-                      const current = (match.holeResults?.[holeNum] || '') as HoleResult;
+                      const current = (match.holeResults?.[String(holeNum)] || '') as HoleResult;
                       const editable = canEditHoles(match);
                       return (
                         <div key={holeNum} className="hole-cell">

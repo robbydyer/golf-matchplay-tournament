@@ -39,6 +39,7 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
   const team2Color = tournament.teams[1].color || '#8b1a1a';
 
   const hasAnyMatches = tournament.rounds.some((r) => r.matches.length > 0);
+  const combineRounds23 = !!tournament.combineRounds23;
 
   const roundsRef = useRef<HTMLDivElement>(null);
   const rosterRef = useRef<HTMLDivElement>(null);
@@ -151,19 +152,31 @@ export default function ScoreboardView({ scoreboard, tournament, fullscreen }: P
 
       <div className="rounds-grid" ref={roundsRef}>
         {tournament.rounds.map((round) => {
+          // When combined, skip round 3 (it's merged into round 2's display)
+          if (combineRounds23 && round.number === 3) return null;
           if (round.matches.length === 0) return null;
           const rs = roundScoreMap.get(round.number);
+
+          // Merge round 2 and 3 scores/label when combined
+          const rs3 = combineRounds23 && round.number === 2 ? roundScoreMap.get(3) : null;
+          const displayTeam1Pts = rs ? rs.team1Points + (rs3?.team1Points ?? 0) : 0;
+          const displayTeam2Pts = rs ? rs.team2Points + (rs3?.team2Points ?? 0) : 0;
+          const displayPtsPerMatch = rs ? rs.pointsPerMatch + (rs3?.pointsPerMatch ?? 0) : 0;
+          const displayName = combineRounds23 && round.number === 2
+            ? 'Foursome (Alternate Shot)'
+            : round.name;
+
           return (
             <div key={round.number} className={`round-matches-section${round.number === 5 ? ' round-last' : ''}`}>
               <div className="round-header">
-                <h4>{round.name}</h4>
+                <h4>{displayName}</h4>
                 {rs && (
                   <div className="round-summary">
-                    <span className="round-pts" style={{ color: team1Color }}>{rs.team1Points}</span>
+                    <span className="round-pts" style={{ color: team1Color }}>{displayTeam1Pts}</span>
                     <span className="round-pts-divider">-</span>
-                    <span className="round-pts" style={{ color: team2Color }}>{rs.team2Points}</span>
+                    <span className="round-pts" style={{ color: team2Color }}>{displayTeam2Pts}</span>
                     <span className="round-meta">
-                      {rs.pointsPerMatch} pt/match
+                      {displayPtsPerMatch} pt/match
                     </span>
                   </div>
                 )}

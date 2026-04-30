@@ -105,6 +105,13 @@ export async function updateTournament(
   });
 }
 
+export async function combineRounds(id: string, combine: boolean): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${id}/combine-rounds`, {
+    method: 'PUT',
+    body: JSON.stringify({ combine }),
+  });
+}
+
 export async function lockTournament(id: string, locked: boolean): Promise<Tournament> {
   return apiFetch<Tournament>(`/tournaments/${id}/lock`, {
     method: 'PUT',
@@ -125,6 +132,13 @@ export async function deleteTournament(id: string): Promise<void> {
 
 export async function getScoreboard(id: string): Promise<Scoreboard> {
   return apiFetch<Scoreboard>(`/tournaments/${id}/scoreboard`);
+}
+
+export async function updateRoundHoles(tournamentId: string, roundNumber: number, holes: number): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/holes`, {
+    method: 'PUT',
+    body: JSON.stringify({ holes }),
+  });
 }
 
 export async function updateRoundName(

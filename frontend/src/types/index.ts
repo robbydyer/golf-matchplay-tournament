@@ -39,6 +39,7 @@ export interface Round {
   name: string;
   type: RoundType;
   pointsPerMatch: number;
+  holes?: number;
   locked?: boolean;
   matches: Match[];
 }
@@ -51,6 +52,7 @@ export interface Tournament {
   headerColor?: string;
   bgColor?: string;
   locked?: boolean;
+  combineRounds23?: boolean;
   createdAt: string;
   updatedAt: string;
 }

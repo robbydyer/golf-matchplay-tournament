@@ -15,6 +15,7 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const [bgColor, setBgColor] = useState(tournament.bgColor || DEFAULT_BG);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [combiningRounds, setCombiningRounds] = useState(false);
   const [error, setError] = useState('');
 
   const [users, setUsers] = useState<LocalUserInfo[]>([]);
@@ -52,6 +53,19 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const handleReset = () => {
     setHeaderColor(DEFAULT_HEADER);
     setBgColor(DEFAULT_BG);
+  };
+
+  const handleToggleCombineRounds = async () => {
+    setCombiningRounds(true);
+    setError('');
+    try {
+      await api.combineRounds(tournament.id, !tournament.combineRounds23);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setCombiningRounds(false);
+    }
   };
 
   const handleToggleLock = async () => {
@@ -143,6 +157,24 @@ export default function ManageView({ tournament, onUpdate }: Props) {
           </button>
           <button className="btn" onClick={handleReset}>
             Reset to Defaults
+          </button>
+        </div>
+      </div>
+
+      <div className="card manage-card">
+        <h3>Round Format</h3>
+        <p style={{ marginBottom: '1rem', color: '#555' }}>
+          {tournament.combineRounds23
+            ? 'Rounds 2 & 3 are combined into a single 18-hole Foursome round. Pairings and scoring are entered under the R2-3 tab.'
+            : 'Rounds 2 and 3 are played as separate 9-hole Foursome sessions (Friday PM and Saturday AM).'}
+        </p>
+        <div className="form-actions">
+          <button
+            className="btn btn-primary"
+            onClick={handleToggleCombineRounds}
+            disabled={combiningRounds}
+          >
+            {combiningRounds ? '...' : tournament.combineRounds23 ? 'Split into Separate Rounds' : 'Combine Rounds 2 & 3'}
           </button>
         </div>
       </div>

@@ -115,20 +115,29 @@ type Round struct {
 	Name           string    `json:"name"`
 	Type           RoundType `json:"type"`
 	PointsPerMatch float64   `json:"pointsPerMatch"`
+	Holes          int       `json:"holes,omitempty"`
 	Locked         bool      `json:"locked,omitempty"`
 	Matches        []Match   `json:"matches"`
 }
 
+func (r *Round) HoleCount() int {
+	if r.Holes <= 0 {
+		return 18
+	}
+	return r.Holes
+}
+
 type Tournament struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Teams       [2]Team   `json:"teams"`
-	Rounds      []Round   `json:"rounds"`
-	HeaderColor string    `json:"headerColor,omitempty"`
-	BgColor     string    `json:"bgColor,omitempty"`
-	Locked      bool      `json:"locked,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Teams            [2]Team   `json:"teams"`
+	Rounds           []Round   `json:"rounds"`
+	HeaderColor      string    `json:"headerColor,omitempty"`
+	BgColor          string    `json:"bgColor,omitempty"`
+	Locked           bool      `json:"locked,omitempty"`
+	CombineRounds23  bool      `json:"combineRounds23,omitempty"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 type Scoreboard struct {
@@ -192,7 +201,7 @@ func DefaultRounds() []Round {
 // CalculateMatchPlayResult derives the match result and score string from
 // hole-by-hole results using standard match play rules. A match is clinched
 // when a team leads by more holes than remain to be played.
-func CalculateMatchPlayResult(holeResults map[string]string, team1Name, team2Name string) (MatchResult, string) {
+func CalculateMatchPlayResult(holeResults map[string]string, team1Name, team2Name string, totalHoles int) (MatchResult, string) {
 	if len(holeResults) == 0 {
 		return ResultPending, ""
 	}
@@ -201,7 +210,7 @@ func CalculateMatchPlayResult(holeResults map[string]string, team1Name, team2Nam
 	t2Wins := 0
 	played := 0
 
-	for h := 1; h <= 18; h++ {
+	for h := 1; h <= totalHoles; h++ {
 		switch holeResults[strconv.Itoa(h)] {
 		case "team1":
 			t1Wins++
@@ -219,7 +228,7 @@ func CalculateMatchPlayResult(holeResults map[string]string, team1Name, team2Nam
 	}
 
 	lead := t1Wins - t2Wins
-	remaining := 18 - played
+	remaining := totalHoles - played
 
 	// Team 1 clinches
 	if lead > 0 && lead > remaining {

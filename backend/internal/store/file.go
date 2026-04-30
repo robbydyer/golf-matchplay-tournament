@@ -461,7 +461,7 @@ func (f *FileStore) UpdateHoleResult(_ context.Context, tournamentID string, rou
 						match.HoleResults[k] = "halved"
 					}
 				}
-				match.Result, match.Score = models.CalculateMatchPlayResult(match.HoleResults, t.Teams[0].Name, t.Teams[1].Name)
+				match.Result, match.Score = models.CalculateMatchPlayResult(match.HoleResults, t.Teams[0].Name, t.Teams[1].Name, t.Rounds[i].HoleCount())
 				t.UpdatedAt = time.Now()
 				return f.writeTournament(t)
 			}

@@ -36,6 +36,7 @@ export default function TournamentView() {
     activeTab = tab || 'scoreboard';
   }
 
+
   const load = useCallback(async () => {
     if (!tournamentId) return;
     try {
@@ -91,6 +92,9 @@ export default function TournamentView() {
   }
 
   const teamsReady = tournament.teams[0].players.length === 8 && tournament.teams[1].players.length === 8;
+  const combineRounds23 = !!tournament.combineRounds23;
+  // When rounds 2 & 3 combined, treat round 3 as round 2
+  const effectiveRound = combineRounds23 && activeRound === 3 ? 2 : activeRound;
 
   const saveName = async () => {
     const trimmed = nameInput.trim();
@@ -179,15 +183,35 @@ export default function TournamentView() {
             </button>
           </>
         )}
-        {[1, 2, 3, 4, 5].map((r) => (
+        <button
+          className={`tab ${activeTab === 'round' && activeRound === 1 ? 'active' : ''}`}
+          onClick={() => navTo('round1')}
+        >R1</button>
+        {combineRounds23 ? (
           <button
-            key={r}
-            className={`tab ${activeTab === 'round' && activeRound === r ? 'active' : ''}`}
-            onClick={() => navTo(`round${r}`)}
-          >
-            R{r}
-          </button>
-        ))}
+            className={`tab ${activeTab === 'round' && (activeRound === 2 || activeRound === 3) ? 'active' : ''}`}
+            onClick={() => navTo('round2')}
+          >R2-3</button>
+        ) : (
+          <>
+            <button
+              className={`tab ${activeTab === 'round' && activeRound === 2 ? 'active' : ''}`}
+              onClick={() => navTo('round2')}
+            >R2</button>
+            <button
+              className={`tab ${activeTab === 'round' && activeRound === 3 ? 'active' : ''}`}
+              onClick={() => navTo('round3')}
+            >R3</button>
+          </>
+        )}
+        <button
+          className={`tab ${activeTab === 'round' && activeRound === 4 ? 'active' : ''}`}
+          onClick={() => navTo('round4')}
+        >R4</button>
+        <button
+          className={`tab ${activeTab === 'round' && activeRound === 5 ? 'active' : ''}`}
+          onClick={() => navTo('round5')}
+        >R5</button>
       </nav>
 
       <div className="tab-content">
@@ -211,7 +235,7 @@ export default function TournamentView() {
         {activeTab === 'round' && (
           <RoundView
             tournament={tournament}
-            roundNumber={activeRound}
+            roundNumber={effectiveRound}
             onUpdate={load}
             teamsReady={teamsReady}
             isAdmin={isAdmin}

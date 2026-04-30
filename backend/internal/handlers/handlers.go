@@ -50,7 +50,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/tournaments/{id}", auth.RequireAdmin(h.DeleteTournament))
 	mux.HandleFunc("GET /api/tournaments/{id}/scoreboard", h.GetScoreboard)
 	mux.HandleFunc("PUT /api/tournaments/{id}/lock", auth.RequireAdmin(h.LockTournament))
+	mux.HandleFunc("PUT /api/tournaments/{id}/combine-rounds", auth.RequireAdmin(h.CombineRounds))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/name", auth.RequireAdmin(h.UpdateRoundName))
+	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/holes", auth.RequireAdmin(h.UpdateRoundHoles))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/lock", auth.RequireAdmin(h.LockRound))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
@@ -519,6 +521,31 @@ func (h *Handler) LockTournament(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, t)
 }
 
+func (h *Handler) CombineRounds(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	var req struct {
+		Combine bool `json:"combine"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	t.CombineRounds23 = req.Combine
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
 func (h *Handler) LockRound(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	roundNum, err := strconv.Atoi(r.PathValue("round"))
@@ -545,6 +572,53 @@ func (h *Handler) LockRound(w http.ResponseWriter, r *http.Request) {
 	for i := range t.Rounds {
 		if t.Rounds[i].Number == roundNum {
 			t.Rounds[i].Locked = req.Locked
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("round %d not found", roundNum))
+		return
+	}
+
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *Handler) UpdateRoundHoles(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	roundNum, err := strconv.Atoi(r.PathValue("round"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid round number")
+		return
+	}
+
+	var req struct {
+		Holes int `json:"holes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Holes < 1 || req.Holes > 18 {
+		writeError(w, http.StatusBadRequest, "holes must be between 1 and 18")
+		return
+	}
+
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	found := false
+	for i := range t.Rounds {
+		if t.Rounds[i].Number == roundNum {
+			t.Rounds[i].Holes = req.Holes
 			found = true
 			break
 		}
@@ -709,6 +783,19 @@ func (h *Handler) UpdateHoleResult(w http.ResponseWriter, r *http.Request) {
 	if err != nil || holeNum < 1 || holeNum > 18 {
 		writeError(w, http.StatusBadRequest, "invalid hole number (1-18)")
 		return
+	}
+
+	// Validate hole number against round's configured hole count
+	{
+		t, err := h.store.GetTournament(r.Context(), id)
+		if err == nil {
+			for _, round := range t.Rounds {
+				if round.Number == roundNum && holeNum > round.HoleCount() {
+					writeError(w, http.StatusBadRequest, fmt.Sprintf("hole %d exceeds this round's %d holes", holeNum, round.HoleCount()))
+					return
+				}
+			}
+		}
 	}
 
 	var req UpdateHoleResultRequest
