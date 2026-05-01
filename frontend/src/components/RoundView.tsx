@@ -124,6 +124,15 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
     }
   };
 
+  const handlePointsChange = async (pts: number) => {
+    try {
+      await api.updateRoundPoints(tournament.id, roundNumber, pts);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const toggleRoundLock = async () => {
     setLockingRound(true);
     try {
@@ -253,6 +262,18 @@ export default function RoundView({ tournament, roundNumber, onUpdate, teamsRead
                   style={{ fontSize: '0.85rem' }}
                 >
                   {[9, 18].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                Pts/match:&nbsp;
+                <select
+                  value={round.pointsPerMatch}
+                  onChange={(e) => handlePointsChange(Number(e.target.value))}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  {[0.5, 1, 1.5, 2].map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

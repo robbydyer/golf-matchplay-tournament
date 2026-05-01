@@ -134,6 +134,13 @@ export async function getScoreboard(id: string): Promise<Scoreboard> {
   return apiFetch<Scoreboard>(`/tournaments/${id}/scoreboard`);
 }
 
+export async function updateRoundPoints(tournamentId: string, roundNumber: number, pointsPerMatch: number): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/points`, {
+    method: 'PUT',
+    body: JSON.stringify({ pointsPerMatch }),
+  });
+}
+
 export async function updateRoundHoles(tournamentId: string, roundNumber: number, holes: number): Promise<Tournament> {
   return apiFetch<Tournament>(`/tournaments/${tournamentId}/rounds/${roundNumber}/holes`, {
     method: 'PUT',

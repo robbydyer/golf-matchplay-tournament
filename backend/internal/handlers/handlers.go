@@ -53,6 +53,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}/combine-rounds", auth.RequireAdmin(h.CombineRounds))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/name", auth.RequireAdmin(h.UpdateRoundName))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/holes", auth.RequireAdmin(h.UpdateRoundHoles))
+	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/points", auth.RequireAdmin(h.UpdateRoundPoints))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/lock", auth.RequireAdmin(h.LockRound))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
@@ -572,6 +573,53 @@ func (h *Handler) LockRound(w http.ResponseWriter, r *http.Request) {
 	for i := range t.Rounds {
 		if t.Rounds[i].Number == roundNum {
 			t.Rounds[i].Locked = req.Locked
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("round %d not found", roundNum))
+		return
+	}
+
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *Handler) UpdateRoundPoints(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	roundNum, err := strconv.Atoi(r.PathValue("round"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid round number")
+		return
+	}
+
+	var req struct {
+		PointsPerMatch float64 `json:"pointsPerMatch"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.PointsPerMatch <= 0 {
+		writeError(w, http.StatusBadRequest, "pointsPerMatch must be greater than 0")
+		return
+	}
+
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	found := false
+	for i := range t.Rounds {
+		if t.Rounds[i].Number == roundNum {
+			t.Rounds[i].PointsPerMatch = req.PointsPerMatch
 			found = true
 			break
 		}
