@@ -15,6 +15,7 @@ export default function ManageView({ tournament, onUpdate }: Props) {
   const [bgColor, setBgColor] = useState(tournament.bgColor || DEFAULT_BG);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [lockingRankings, setLockingRankings] = useState(false);
   const [combiningRounds, setCombiningRounds] = useState(false);
   const [error, setError] = useState('');
 
@@ -65,6 +66,19 @@ export default function ManageView({ tournament, onUpdate }: Props) {
       setError(e.message);
     } finally {
       setCombiningRounds(false);
+    }
+  };
+
+  const handleToggleRankingsLock = async () => {
+    setLockingRankings(true);
+    setError('');
+    try {
+      await api.lockRankings(tournament.id, !tournament.rankingsLocked);
+      onUpdate();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLockingRankings(false);
     }
   };
 
@@ -175,6 +189,24 @@ export default function ManageView({ tournament, onUpdate }: Props) {
             disabled={combiningRounds}
           >
             {combiningRounds ? '...' : tournament.combineRounds23 ? 'Split into Separate Rounds' : 'Combine Rounds 2 & 3'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card manage-card">
+        <h3>Rankings Lock</h3>
+        <p style={{ marginBottom: '1rem', color: '#555' }}>
+          {tournament.rankingsLocked
+            ? 'Rankings are locked. Players cannot submit or update rankings. Admins can still submit.'
+            : 'Rankings are open. Linked players can submit their team ranking.'}
+        </p>
+        <div className="form-actions">
+          <button
+            className={`btn ${tournament.rankingsLocked ? 'btn-primary' : 'btn-danger'}`}
+            onClick={handleToggleRankingsLock}
+            disabled={lockingRankings}
+          >
+            {lockingRankings ? '...' : tournament.rankingsLocked ? 'Unlock Rankings' : 'Lock Rankings'}
           </button>
         </div>
       </div>

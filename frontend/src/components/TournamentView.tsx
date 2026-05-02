@@ -7,6 +7,7 @@ import TeamSetup from './TeamSetup';
 import RoundView from './RoundView';
 import PlayerLinks from './PlayerLinks';
 import ManageView from './ManageView';
+import RankingView from './RankingView';
 import Header from './Header';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -34,6 +35,10 @@ export default function TournamentView() {
     }
   } else {
     activeTab = tab || 'scoreboard';
+    // Treat unknown tabs as scoreboard
+    if (!['scoreboard', 'teams', 'rankings', 'links', 'manage'].includes(activeTab)) {
+      activeTab = 'scoreboard';
+    }
   }
 
 
@@ -167,6 +172,12 @@ export default function TournamentView() {
         >
           Teams
         </button>
+        <button
+          className={`tab ${activeTab === 'rankings' ? 'active' : ''}`}
+          onClick={() => navTo('rankings')}
+        >
+          Rankings
+        </button>
         {isAdmin && (
           <>
             <button
@@ -225,6 +236,9 @@ export default function TournamentView() {
         )}
         {activeTab === 'teams' && (
           <TeamSetup tournament={tournament} onUpdate={load} isAdmin={isAdmin} />
+        )}
+        {activeTab === 'rankings' && (
+          <RankingView tournament={tournament} />
         )}
         {activeTab === 'links' && isAdmin && (
           <PlayerLinks tournament={tournament} onUpdate={load} />

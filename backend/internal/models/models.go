@@ -49,6 +49,12 @@ type LocalUser struct {
 	CreatedAt         time.Time `json:"createdAt"`
 }
 
+type PlayerRanking struct {
+	SubmittedBy string    `json:"submittedBy"` // user email
+	PlayerIDs   []string  `json:"playerIds"`   // player IDs in rank order, best = index 0
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
 type Team struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
@@ -134,8 +140,10 @@ type Tournament struct {
 	Rounds           []Round   `json:"rounds"`
 	HeaderColor      string    `json:"headerColor,omitempty"`
 	BgColor          string    `json:"bgColor,omitempty"`
-	Locked           bool      `json:"locked,omitempty"`
-	CombineRounds23  bool      `json:"combineRounds23,omitempty"`
+	Locked           bool            `json:"locked,omitempty"`
+	CombineRounds23  bool            `json:"combineRounds23,omitempty"`
+	Rankings         []PlayerRanking `json:"rankings,omitempty"`
+	RankingsLocked   bool            `json:"rankingsLocked,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }

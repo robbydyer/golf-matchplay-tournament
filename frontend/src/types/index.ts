@@ -53,6 +53,7 @@ export interface Tournament {
   bgColor?: string;
   locked?: boolean;
   combineRounds23?: boolean;
+  rankingsLocked?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -80,6 +81,12 @@ export interface User {
   name: string;
   picture: string;
   isAdmin: boolean;
+}
+
+export interface PlayerRanking {
+  submittedBy: string;
+  playerIds: string[];
+  updatedAt: string;
 }
 
 export interface LocalUserInfo {

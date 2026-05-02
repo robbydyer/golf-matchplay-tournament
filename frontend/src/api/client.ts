@@ -1,4 +1,4 @@
-import { Tournament, Scoreboard, MatchResult, HoleResult, User, RegisteredUser, LocalUserInfo } from '../types';
+import { Tournament, Scoreboard, MatchResult, HoleResult, User, RegisteredUser, LocalUserInfo, PlayerRanking } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
@@ -191,6 +191,24 @@ export async function listPublicImages(): Promise<string[]> {
   const res = await fetch('/images.json');
   if (!res.ok) return [];
   return res.json();
+}
+
+export async function getRankings(tournamentId: string): Promise<PlayerRanking[]> {
+  return apiFetch<PlayerRanking[]>(`/tournaments/${tournamentId}/rankings`);
+}
+
+export async function lockRankings(tournamentId: string, locked: boolean): Promise<Tournament> {
+  return apiFetch<Tournament>(`/tournaments/${tournamentId}/rankings/lock`, {
+    method: 'PUT',
+    body: JSON.stringify({ locked }),
+  });
+}
+
+export async function submitRanking(tournamentId: string, playerIds: string[]): Promise<{ message: string }> {
+  return apiFetch(`/tournaments/${tournamentId}/rankings`, {
+    method: 'PUT',
+    body: JSON.stringify({ playerIds }),
+  });
 }
 
 export async function linkPlayer(

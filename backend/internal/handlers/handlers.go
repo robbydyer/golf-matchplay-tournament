@@ -58,6 +58,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/pairings", auth.RequireAdmin(h.SetPairings))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}", auth.RequireAdmin(h.UpdateMatchResult))
 	mux.HandleFunc("PUT /api/tournaments/{id}/rounds/{round}/matches/{matchId}/holes/{hole}", h.UpdateHoleResult)
+	mux.HandleFunc("GET /api/tournaments/{id}/rankings", h.GetRankings)
+	mux.HandleFunc("PUT /api/tournaments/{id}/rankings", h.SubmitRanking)
+	mux.HandleFunc("PUT /api/tournaments/{id}/rankings/lock", auth.RequireAdmin(h.LockRankings))
 	mux.HandleFunc("GET /api/users", auth.RequireAdmin(h.ListUsers))
 	mux.HandleFunc("PUT /api/tournaments/{id}/players/{playerId}/link", auth.RequireAdmin(h.LinkPlayer))
 
@@ -967,6 +970,160 @@ func (h *Handler) LinkPlayer(w http.ResponseWriter, r *http.Request) {
 
 	t, _ := h.store.GetTournament(r.Context(), id)
 	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *Handler) LockRankings(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	var req struct {
+		Locked bool `json:"locked"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	t.RankingsLocked = req.Locked
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *Handler) GetRankings(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	id := r.PathValue("id")
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	if !user.IsAdmin {
+		// Non-admins only get their own ranking back
+		for _, rk := range t.Rankings {
+			if strings.EqualFold(rk.SubmittedBy, user.Email) {
+				writeJSON(w, http.StatusOK, []models.PlayerRanking{rk})
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, []models.PlayerRanking{})
+		return
+	}
+
+	if t.Rankings == nil {
+		writeJSON(w, http.StatusOK, []models.PlayerRanking{})
+		return
+	}
+	writeJSON(w, http.StatusOK, t.Rankings)
+}
+
+func (h *Handler) SubmitRanking(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUser(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	id := r.PathValue("id")
+	t, err := h.store.GetTournament(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	if t.RankingsLocked && !user.IsAdmin {
+		writeError(w, http.StatusForbidden, "rankings are locked")
+		return
+	}
+
+	var req struct {
+		PlayerIDs []string `json:"playerIds"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Determine which team the submitter belongs to
+	submitterEmail := strings.ToLower(user.Email)
+	var teamPlayers []models.Player
+	for _, team := range t.Teams {
+		for _, p := range team.Players {
+			if strings.EqualFold(p.UserEmail, submitterEmail) {
+				teamPlayers = team.Players
+				break
+			}
+		}
+		if teamPlayers != nil {
+			break
+		}
+	}
+	if teamPlayers == nil && !user.IsAdmin {
+		writeError(w, http.StatusForbidden, "you are not linked to a player on this tournament")
+		return
+	}
+
+	// Validate: submitted player IDs must exactly match the team's players
+	if teamPlayers != nil {
+		teamIDs := make(map[string]bool)
+		for _, p := range teamPlayers {
+			teamIDs[p.ID] = true
+		}
+		if len(req.PlayerIDs) != len(teamPlayers) {
+			writeError(w, http.StatusBadRequest, "ranking must include all team members")
+			return
+		}
+		seen := make(map[string]bool)
+		for _, pid := range req.PlayerIDs {
+			if !teamIDs[pid] {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("player %s is not on your team", pid))
+				return
+			}
+			if seen[pid] {
+				writeError(w, http.StatusBadRequest, "duplicate player in ranking")
+				return
+			}
+			seen[pid] = true
+		}
+	}
+
+	// Upsert the ranking
+	found := false
+	for i, rk := range t.Rankings {
+		if strings.EqualFold(rk.SubmittedBy, submitterEmail) {
+			t.Rankings[i].PlayerIDs = req.PlayerIDs
+			t.Rankings[i].UpdatedAt = time.Now()
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Rankings = append(t.Rankings, models.PlayerRanking{
+			SubmittedBy: submitterEmail,
+			PlayerIDs:   req.PlayerIDs,
+			UpdatedAt:   time.Now(),
+		})
+	}
+
+	if err := h.store.UpdateTournament(r.Context(), t); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "ranking saved"})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
